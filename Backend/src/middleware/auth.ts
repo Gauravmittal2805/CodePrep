@@ -3,6 +3,7 @@ import admin from "firebase-admin";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import User from "../models/User";
 
 declare global {
     namespace Express {
@@ -90,8 +91,30 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
         // Extract token (remove 'Bearer ' prefix)
         const token = authHeader.substring(7);
 
-        // Verify Firebase token
-        const decodedToken = await admin.auth().verifyIdToken(token);
+        // Verify Firebase token (check if revoked)
+        const decodedToken = await admin.auth().verifyIdToken(token, true);
+
+        // Secondary check: MongoDB lastForcedLogout
+        const userDoc = await User.findOne({ uid: decodedToken.uid });
+        if (userDoc?.lastForcedLogout) {
+            const logoutTime = new Date(userDoc.lastForcedLogout).getTime() / 1000;
+            // If token was issued BEFORE the last forced logout, reject it
+            if (decodedToken.iat < logoutTime) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Session has been invalidated'
+                });
+            }
+        }
+
+        if (userDoc?.isBlocked) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account has been blocked',
+                reason: userDoc.blockReason
+            });
+        }
+
         req.user = decodedToken;
         next();
     } catch (err) {

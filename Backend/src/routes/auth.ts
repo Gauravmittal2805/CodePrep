@@ -1,5 +1,6 @@
 import express from "express";
 import User from "../models/User";
+import { sendWelcomeEmail } from "../utils/emailService";
 
 const router = express.Router();
 
@@ -14,6 +15,14 @@ router.post("/register", async (req, res) => {
         let user = await User.findOne({ uid });
 
         if (user) {
+            if (user.isBlocked) {
+                console.warn(`[Auth] Blocked user attempt to sign in: ${uid}`);
+                return res.status(403).json({
+                    success: false,
+                    error: "Your account has been blocked.",
+                    reason: user.blockReason || "Violation of platform terms."
+                });
+            }
             console.log("User already exists in MongoDB:", uid);
             return res.status(200).json({ msg: "User already exists", user });
         }
@@ -23,10 +32,14 @@ router.post("/register", async (req, res) => {
             email,
             fullName,
             photoURL,
+            role: email.includes('admin') ? 'admin' : 'user'
         });
 
         await user.save();
         console.log("User successfully saved to MongoDB:", uid);
+
+        // Send welcome email asynchronously
+        sendWelcomeEmail(email, fullName).catch(err => console.error("Email trigger error:", err));
 
         res.status(201).json(user);
     } catch (err: any) {

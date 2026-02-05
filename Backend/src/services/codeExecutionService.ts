@@ -2,7 +2,7 @@ import { exec, spawn } from 'child_process';
 import { writeFile, unlink } from 'fs/promises';
 import { join, dirname, basename, extname } from 'path';
 import * as path from 'path';
- import * as os from 'os';
+import * as os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 
 type Language = 'javascript' | 'python' | 'java' | 'cpp';
@@ -79,7 +79,7 @@ export class CodeExecutionService {
         }
     }
 
-    private static async writeToTempFile(code: string, extension: string): Promise<{filePath: string, className?: string}> {
+    private static async writeToTempFile(code: string, extension: string): Promise<{ filePath: string, className?: string }> {
         const filename = `${uuidv4()}.${extension}`;
         const filePath = join(TEMP_DIR, filename);
         await writeFile(filePath, code);
@@ -166,7 +166,7 @@ if __name__ == "__main__":
                     ? `${imports}\n${normalizedUserCode}\n`
                     : `${imports}\nclass Solution {\n${normalizedUserCode}\n}\n`;
 
-                const mainSource = `import java.io.*;\nimport java.util.*;\nimport java.lang.reflect.*;\n\npublic class Main {\n\n    private static int[] parseIntArray(String input) {\n        if (input == null) return new int[0];\n        String s = input.trim();\n        if (s.isEmpty()) return new int[0];\n\n        // Support JSON-like array string: [1,2,3]\n        if (s.startsWith(\"[\") && s.endsWith(\"]\")) {\n            String inner = s.substring(1, s.length() - 1).trim();\n            if (inner.isEmpty()) return new int[0];\n            String[] parts = inner.split(\",\");\n            int[] a = new int[parts.length];\n            for (int i = 0; i < parts.length; i++) {\n                a[i] = Integer.parseInt(parts[i].trim());\n            }\n            return a;\n        }\n\n        // Default: whitespace/newline separated tokens\n        ArrayList<Integer> vals = new ArrayList<>();\n        Scanner sc = new Scanner(s);\n        while (sc.hasNext()) {\n            String tok = sc.next();\n            if (tok == null || tok.isEmpty()) continue;\n            vals.add(Integer.parseInt(tok));\n        }\n        int[] a = new int[vals.size()];\n        for (int i = 0; i < vals.size(); i++) a[i] = vals.get(i);\n        return a;\n    }\n\n    public static void main(String[] args) throws Exception {\n        String input = System.getenv(\"INPUT\");\n        if (input == null) input = \"\";\n\n        PrintStream originalOut = System.out;\n        try {\n            System.setOut(new PrintStream(OutputStream.nullOutputStream()));\n\n            Class<?> cls = Class.forName(\"Solution\");\n            Object instance = null;\n\n            Method m = null;\n            int mode = 0;\n            try {\n                m = cls.getDeclaredMethod(\"solve\", int[].class);\n                mode = 1;\n            } catch (NoSuchMethodException ignored0) {\n                try {\n                    m = cls.getDeclaredMethod(\"solve\", String.class);\n                    mode = 2;\n                } catch (NoSuchMethodException ignored) {\n                    try {\n                        m = cls.getDeclaredMethod(\"solve\");\n                        mode = 3;\n                    } catch (NoSuchMethodException ignored2) {\n                        System.setOut(originalOut);\n                        System.out.print("ERROR: Please define a method named solve(int[] input) OR solve(String input) OR solve() inside class Solution.");\n                        System.exit(1);\n                        return;\n                    }\n                }\n            }\n\n            m.setAccessible(true);\n\n            if (!Modifier.isStatic(m.getModifiers())) {\n                instance = cls.getDeclaredConstructor().newInstance();\n            }\n\n            Object ret;\n            if (mode == 1) {\n                ret = m.invoke(instance, (Object) parseIntArray(input));\n            } else if (mode == 2) {\n                ret = m.invoke(instance, input);\n            } else {\n                ret = m.invoke(instance);\n            }\n\n            System.setOut(originalOut);\n            if (m.getReturnType() != Void.TYPE) {\n                System.out.print(String.valueOf(ret));\n            }\n        } catch (Throwable t) {\n            System.setOut(originalOut);\n            t.printStackTrace(originalOut);\n            System.exit(1);\n        }\n    }\n}\n`;
+                const mainSource = `import java.io.*;\nimport java.util.*;\nimport java.lang.reflect.*;\n\npublic class Main {\n\n    public static void main(String[] args) throws Exception {\n        String inputStr = System.getenv("INPUT");\n        if (inputStr == null) inputStr = "";\n\n        Scanner sc = new Scanner(inputStr);\n        ArrayList<Integer> allInts = new ArrayList<>();\n        while (sc.hasNextInt()) {\n            allInts.add(sc.nextInt());\n        }\n\n        PrintStream originalOut = System.out;\n        try {\n            System.setOut(new PrintStream(OutputStream.nullOutputStream()));\n\n            Class<?> cls = Class.forName("Solution");\n            Object instance = null;\n\n            Method m = null;\n            Object[] params = null;\n\n            // Try solve(int[], int) - e.g. for target sum problems\n            try {\n                m = cls.getDeclaredMethod("solve", int[].class, int.class);\n                if (allInts.size() >= 2) {\n                    int n = allInts.get(0);\n                    int[] arr = new int[n];\n                    for (int i = 0; i < n && i + 1 < allInts.size(); i++) {\n                        arr[i] = allInts.get(i + 1);\n                    }\n                    int target = allInts.get(allInts.size() - 1);\n                    params = new Object[]{arr, target};\n                }\n            } catch (NoSuchMethodException ignored) {}\n\n            // Try solve(int[])\n            if (m == null) {\n                try {\n                    m = cls.getDeclaredMethod("solve", int[].class);\n                    if (allInts.size() > 0) {\n                        int n = allInts.get(0);\n                        if (n == allInts.size() - 1) {\n                            int[] arr = new int[n];\n                            for (int i = 0; i < n; i++) arr[i] = allInts.get(i + 1);\n                            params = new Object[]{arr};\n                        } else {\n                            int[] arr = new int[allInts.size()];\n                            for (int i = 0; i < allInts.size(); i++) arr[i] = allInts.get(i);\n                            params = new Object[]{arr};\n                        }\n                    } else {\n                        params = new Object[]{new int[0]};\n                    }\n                } catch (NoSuchMethodException ignored) {}\n            }\n\n            // Try solve(String)\n            if (m == null) {\n                try {\n                    m = cls.getDeclaredMethod("solve", String.class);\n                    params = new Object[]{inputStr};\n                } catch (NoSuchMethodException ignored) {}\n            }\n\n            // Try solve()\n            if (m == null) {\n                try {\n                    m = cls.getDeclaredMethod("solve");\n                    params = new Object[]{};\n                } catch (NoSuchMethodException ignored) {}\n            }\n\n            if (m == null) {\n                System.setOut(originalOut);\n                System.out.print("ERROR: Suitable solve method not found. Found methods: " + Arrays.toString(cls.getDeclaredMethods()));\n                System.exit(1);\n            }\n\n            m.setAccessible(true);\n            if (!Modifier.isStatic(m.getModifiers())) {\n                instance = cls.getDeclaredConstructor().newInstance();\n            }\n\n            Object ret = m.invoke(instance, params);\n\n            System.setOut(originalOut);\n            if (m.getReturnType() != Void.TYPE && ret != null) {\n                System.out.print(String.valueOf(ret));\n            }\n        } catch (Throwable t) {\n            System.setOut(originalOut);\n            t.printStackTrace(originalOut);\n            System.exit(1);\n        }\n    }\n}\n`;
 
                 const combined = `//__JAVA_MULTIFILE__\n${solutionSource}\n//__JAVA_MAIN__\n${mainSource}`;
                 return { source: combined, extension: 'java' };
@@ -258,8 +258,8 @@ int main() {
     }
 
     private static async executeCommand(
-        command: string, 
-        args: string[], 
+        command: string,
+        args: string[],
         input?: string,
         cwd: string = TEMP_DIR,
         extraEnv?: Record<string, string>
@@ -267,8 +267,8 @@ int main() {
         return new Promise((resolve) => {
             const startTime = process.hrtime();
             const processEnv = { ...process.env, PWD: cwd, ...(extraEnv ?? {}) };
-            
-            const child = spawn(command, args, { 
+
+            const child = spawn(command, args, {
                 cwd,
                 env: processEnv,
                 stdio: ['pipe', 'pipe', 'pipe']
@@ -302,7 +302,7 @@ int main() {
                 clearTimeout(timeout);
                 const endTime = process.hrtime(startTime);
                 const executionTime = endTime[0] * 1000 + endTime[1] / 1e6; // Convert to ms
-                
+
                 resolve({
                     output: output.trim(),
                     error: errorOutput.trim(),
@@ -327,10 +327,10 @@ int main() {
             case 'javascript':
                 return { command: 'node', args: [filePath] };
             case 'python':
-                return { command: 'python3', args: [filePath] };
+                return { command: 'python', args: [filePath] };
             case 'java':
-                return { 
-                    command: 'javac', 
+                return {
+                    command: 'javac',
                     args: [filePath],
                     postCompile: {
                         command: 'java',
@@ -339,8 +339,8 @@ int main() {
                 };
             case 'cpp':
                 const outputFile = path.join(dirName, baseName);
-                return { 
-                    command: 'g++', 
+                return {
+                    command: 'g++',
                     args: [filePath, '-o', outputFile],
                     postCompile: {
                         command: outputFile,
@@ -353,8 +353,8 @@ int main() {
     }
 
     public static async executeCode(
-        code: string, 
-        language: Language, 
+        code: string,
+        language: Language,
         input?: unknown
     ): Promise<ExecutionResult> {
         const normalizedInput = this.normalizeInputToStdin(input);
@@ -401,23 +401,23 @@ int main() {
                 } catch (e) { /* Ignore cleanup errors */ }
 
                 return result;
-                
+
             } else if (language === 'cpp') {
                 const outputFile = path.join(fileDir, baseName);
                 const compileResult = await this.executeCommand(
-                    'g++', 
+                    'g++',
                     [filePath, '-o', outputFile],
                     undefined,
                     fileDir
                 );
-                
+
                 if (compileResult.isError) {
                     return {
                         ...compileResult,
                         error: `Compilation Error: ${compileResult.error}`
                     };
                 }
-                
+
                 // Execute the compiled binary
                 const result = await this.executeCommand(
                     process.platform === 'win32' ? `${outputFile}.exe` : outputFile,
@@ -426,7 +426,7 @@ int main() {
                     fileDir,
                     { INPUT: normalizedInput }
                 );
-                
+
                 // Clean up
                 try {
                     await unlink(filePath);
@@ -435,7 +435,7 @@ int main() {
                         await unlink(`${outputFile}.exe`);
                     }
                 } catch (e) { /* Ignore cleanup errors */ }
-                
+
                 return result;
             } else {
                 // For interpreted languages (JavaScript, Python)
@@ -443,12 +443,12 @@ int main() {
                 const result = await this.executeCommand(command, args, undefined, fileDir, {
                     INPUT: normalizedInput
                 });
-                
+
                 // Clean up
                 try {
                     await unlink(filePath);
                 } catch (e) { /* Ignore cleanup errors */ }
-                
+
                 return result;
             }
         } catch (error) {
@@ -478,12 +478,72 @@ int main() {
         for (const testCase of testCases) {
             const { input, expectedOutput } = testCase;
             const result = await this.executeCode(code, language, input);
-            
+
+            // Robust canonical comparison
+            let passed = false;
+            try {
+                const actualTrimmed = result.output.trim();
+                const expectedTrimmed = expectedOutput.trim();
+
+                if (actualTrimmed === expectedTrimmed) {
+                    passed = true;
+                } else {
+                    // Normalize by removing all whitespace
+                    const normActual = actualTrimmed.replace(/\s+/g, '');
+                    const normExpected = expectedTrimmed.replace(/\s+/g, '');
+
+                    if (normActual === normExpected) {
+                        passed = true;
+                    } else {
+                        // Attempt to parse as JSON for deeper comparison (e.g., order of triplets)
+                        try {
+                            const actualObj = JSON.parse(actualTrimmed);
+                            const expectedObj = JSON.parse(expectedTrimmed);
+
+                            if (Array.isArray(actualObj) && Array.isArray(expectedObj)) {
+                                // Canonical sort for nested arrays
+                                const canonicalize = (arr: any[]): string => {
+                                    return JSON.stringify(arr.map(sub => {
+                                        return Array.isArray(sub) ? [...sub].sort((a, b) => a - b) : sub;
+                                    }).sort((a, b) => {
+                                        const sA = JSON.stringify(a);
+                                        const sB = JSON.stringify(b);
+                                        return sA.localeCompare(sB);
+                                    }));
+                                };
+                                passed = canonicalize(actualObj) === canonicalize(expectedObj);
+                            } else if (typeof actualObj === 'object' && actualObj !== null &&
+                                typeof expectedObj === 'object' && expectedObj !== null) {
+                                // For non-array objects, deep comparison might be needed,
+                                // but for now, we'll just stringify and compare sorted keys.
+                                // This is a basic canonicalization for objects.
+                                const canonicalizeObject = (obj: object): string => {
+                                    return JSON.stringify(Object.keys(obj).sort().reduce((acc, key) => {
+                                        // @ts-ignore
+                                        acc[key] = obj[key];
+                                        return acc;
+                                    }, {}));
+                                };
+                                passed = canonicalizeObject(actualObj) === canonicalizeObject(expectedObj);
+                            } else {
+                                // If JSON parse succeeds but not arrays/objects, rely on normalized string comparison
+                                passed = normActual === normExpected;
+                            }
+                        } catch {
+                            // If JSON parse fails, rely on normalized string comparison
+                            passed = normActual === normExpected;
+                        }
+                    }
+                }
+            } catch (e) {
+                passed = false;
+            }
+
             results.push({
                 input: this.normalizeInputToStdin(input),
                 expectedOutput,
                 actualOutput: result.output,
-                passed: result.output.trim() === expectedOutput.trim() && !result.isError,
+                passed: passed && !result.isError,
                 error: result.error,
                 executionTime: result.executionTime
             });

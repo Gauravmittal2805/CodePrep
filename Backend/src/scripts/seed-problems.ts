@@ -50,60 +50,60 @@ const sampleProblem = {
     hidden_test_cases: [
         {
             input: "6\n-1 0 1 2 -1 -4",
-            output: "[[-1, -1, 2], [-1, 0, 1]]",
+            output: "[[-1,-1,2],[-1,0,1]]",
             description: "Standard case with multiple valid triplets",
             points: 10
         },
         {
-            input: "7\n-1 0 1 2 -1 -4, -2",
-            output: "[[-2, 0, 2], [-1, -1, 2], [-1, 0, 1]]",
+            input: "7\n-1 0 1 2 -1 -4 -2",
+            output: "[[-2,0,2],[-1,-1,2],[-1,0,1]]",
             description: "Larger input with more valid combinations",
             points: 15
         },
         {
             input: "5\n0 0 0 0 0",
-            output: "[[0, 0, 0]]",
+            output: "[[0,0,0]]",
             description: "All zeros",
             points: 10
         },
         {
-            input: "10\n-4,-2,1,-5,-4,-4,4,-2,0,4,0,-2,3,1,-5,0",
+            input: "16\n-4 -2 1 -5 -4 -4 4 -2 0 4 0 -2 3 1 -5 0",
             output: "[[-5,1,4],[-4,0,4],[-4,1,3],[-2,-2,4],[-2,1,1],[0,0,0]]",
             description: "Larger input with negative and positive numbers",
             points: 15
         },
         {
-            input: "6\n3,0,-2,-1,1,2",
+            input: "6\n3 0 -2 -1 1 2",
             output: "[[-2,-1,3],[-2,0,2],[-1,0,1]]",
             description: "Mix of positive and negative numbers",
             points: 10
         },
         {
-            input: "8\n-1,0,1,2,-1,-4,2,2",
+            input: "8\n-1 0 1 2 -1 -4 2 2",
             output: "[[-4,2,2],[-1,-1,2],[-1,0,1]]",
             description: "Input with duplicate numbers",
             points: 10
         },
         {
-            input: "6\n1,2,-2,-1,0,0",
-            output: "[[-2,0,2],[-1,0,1],[0,0,0]]",
+            input: "6\n1 2 -2 -1 0 0",
+            output: "[[-2,0,2],[-1,0,1]]",
             description: "Input with multiple zeros",
             points: 10
         },
         {
-            input: "7\n-1,0,1,2,-1,-4,4",
+            input: "7\n-1 0 1 2 -1 -4 4",
             output: "[[-4,0,4],[-1,-1,2],[-1,0,1]]",
             description: "Input with a valid triplet using the largest number",
             points: 10
         },
         {
-            input: "9\n-1,0,1,2,-1,-4,3,-3,0",
-            output: "[[-4,1,3],[-3,0,3],[-3,1,2],[-1,-1,2],[-1,0,1],[0,0,0]]",
+            input: "9\n-1 0 1 2 -1 -4 3 -3 0",
+            output: "[[-4,1,3],[-3,0,3],[-3,1,2],[-1,-1,2],[-1,0,1]]",
             description: "Larger input with multiple valid triplets",
             points: 15
         },
         {
-            input: "5\n1,2,3,4,5",
+            input: "5\n1 2 3 4 5",
             output: "[]",
             description: "No valid triplets",
             points: 5
@@ -162,26 +162,73 @@ const sampleProblems = [
         hidden_test_cases: [
             {
                 input: "6\n-1 0 1 2 -1 -4",
-                output: "[[-1, -1, 2], [-1, 0, 1]]",
+                output: "[[-1,-1,2],[-1,0,1]]",
                 description: "Standard case with multiple valid triplets",
                 points: 10
             },
             {
                 input: "7\n-1 0 1 2 -1 -4 -2",
-                output: "[[-2, 0, 2], [-1, -1, 2], [-1, 0, 1]]",
+                output: "[[-2,0,2],[-1,-1,2],[-1,0,1]]",
                 description: "Larger input with more valid combinations",
                 points: 15
             },
             {
                 input: "5\n0 0 0 0 0",
-                output: "[[0, 0, 0]]",
+                output: "[[0,0,0]]",
                 description: "All zeros",
                 points: 10
+            },
+            {
+                input: "16\n-4 -2 1 -5 -4 -4 4 -2 0 4 0 -2 3 1 -5 0",
+                output: "[[-5,1,4],[-4,0,4],[-4,1,3],[-2,-2,4],[-2,1,1],[0,0,0]]",
+                description: "Larger input with negative and positive numbers",
+                points: 15
+            },
+            {
+                input: "6\n3 0 -2 -1 1 2",
+                output: "[[-2,-1,3],[-2,0,2],[-1,0,1]]",
+                description: "Mix of positive and negative numbers",
+                points: 10
+            },
+            {
+                input: "8\n-1 0 1 2 -1 -4 2 2",
+                output: "[[-4,2,2],[-1,-1,2],[-1,0,1]]",
+                description: "Input with duplicate numbers",
+                points: 10
+            },
+            {
+                input: "6\n1 2 -2 -1 0 0",
+                output: "[[-2,0,2],[-1,0,1]]",
+                description: "Input with multiple zeros",
+                points: 10
+            },
+            {
+                input: "7\n-1 0 1 2 -1 -4 4",
+                output: "[[-4,0,4],[-1,-1,2],[-1,0,1]]",
+                description: "Input with a valid triplet using the largest number",
+                points: 10
+            },
+            {
+                input: "9\n-1 0 1 2 -1 -4 3 -3 0",
+                output: "[[-4,1,3],[-3,0,3],[-3,1,2],[-1,-1,2],[-1,0,1]]",
+                description: "Larger input with multiple valid triplets",
+                points: 15
+            },
+            {
+                input: "5\n1 2 3 4 5",
+                output: "[]",
+                description: "No valid triplets",
+                points: 5
             }
         ],
         judge_type: "multiple-output",
         notes: "Triplets should be unique. Order of triplets does not matter.",
-        source: "Company OA Inspired"
+        source: "Company OA Inspired",
+        starterCode: {
+            java: "import java.util.*;\n\nclass Solution {\n    public List<List<Integer>> solve(int[] input) {\n        // Your code here\n        return new ArrayList<>();\n    }\n}",
+            python: "from typing import List\n\ndef solve(nums: List[int]) -> List[List[int]]:\n    # Your code here\n    return []",
+            cpp: "#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<vector<int>> solve(vector<int>& nums) {\n        // Your code here\n        return {};\n    }\n};"
+        }
     },
     // New problem 1
     {
@@ -202,6 +249,11 @@ const sampleProblems = [
         time_complexity: "O(N)",
         space_complexity: "O(1)",
         judge_type: "multiple-output",
+        starterCode: {
+            java: "import java.util.*;\n\nclass Solution {\n    public List<List<Integer>> solve(int[] arr, int target) {\n        // Your code here\n        return new ArrayList<>();\n    }\n}",
+            python: "from typing import List\n\ndef solve(arr: List[int], target: int) -> List[List[int]]:\n    # Your code here\n    return []",
+            cpp: "#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<vector<int>> solve(vector<int>& arr, int target) {\n        // Your code here\n        return {};\n    }\n};"
+        },
         test_cases: [
             { "input": "3\n1 1 1\n2", "output": "[[1,1]]", "isHidden": false }
         ],
@@ -231,6 +283,11 @@ const sampleProblems = [
         time_complexity: "O(N log N)",
         space_complexity: "O(1)",
         judge_type: "multiple-output",
+        starterCode: {
+            java: "import java.util.*;\n\nclass Solution {\n    public List<List<Integer>> solve(int[] arr, int k) {\n        // Your code here\n        return new ArrayList<>();\n    }\n}",
+            python: "from typing import List\n\ndef solve(arr: List[int], k: int) -> List[List[int]]:\n    # Your code here\n    return []",
+            cpp: "#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<vector<int>> solve(vector<int>& arr, int k) {\n        // Your code here\n        return {};\n    }\n};"
+        },
         test_cases: [
             { "input": "4\n1 1 1 1\n0", "output": "[[1,1]]", "isHidden": false }
         ],
@@ -245,17 +302,17 @@ const sampleProblems = [
 async function seedProblems() {
     try {
         console.log("🚀 Starting database seeding...");
-        
+
         // Get MongoDB URI from environment or use default
         const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/CodePrep";
         console.log(`🔗 Attempting to connect to MongoDB at: ${mongoUri}`);
-        
+
         // Connect to MongoDB with options
         await mongoose.connect(mongoUri, {
             serverSelectionTimeoutMS: 5000, // 5 seconds timeout
             socketTimeoutMS: 45000, // 45 seconds socket timeout
         });
-        
+
         console.log("✅ Successfully connected to MongoDB");
 
         // Check if the collection exists and show current count
@@ -271,28 +328,28 @@ async function seedProblems() {
         console.log("📝 Inserting problems...");
         const insertedProblems = await Problem.insertMany(sampleProblems);
         console.log(`✅ Successfully inserted ${insertedProblems.length} problems`);
-        
+
         // Log each inserted problem
         insertedProblems.forEach((problem, index) => {
             console.log(`  ${index + 1}. ${problem.title} (ID: ${problem._id})`);
         });
-        
+
         console.log("\n✨ Seeding completed successfully!");
 
     } catch (error) {
         console.error("\n❌ Error during database seeding:");
         console.error(error);
-        
+
         if (error instanceof Error) {
             console.error("\nError details:");
             console.error(`- Name: ${error.name}`);
             console.error(`- Message: ${error.message}`);
-            
+
             if ('code' in error) {
                 console.error(`- Code: ${error.code}`);
             }
         }
-        
+
         process.exit(1);
     } finally {
         try {

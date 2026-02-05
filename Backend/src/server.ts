@@ -7,6 +7,9 @@ import path from "path";
 import authRoutes from "./routes/auth";
 import problemRoutes from "./routes/problems";
 import codeRoutes from "./routes/code";
+import discussionRoutes from "./routes/discussions";
+import adminRoutes from "./routes/admin";
+import dashboardRoutes from "./routes/dashboard";
 
 (() => {
     const candidates = [
@@ -31,7 +34,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
@@ -40,6 +43,9 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/problems", problemRoutes);
 app.use("/api/code", codeRoutes);
+app.use("/api/discussions", discussionRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // MongoDB Connection
 mongoose

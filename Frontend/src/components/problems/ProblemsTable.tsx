@@ -47,9 +47,11 @@ const ProblemsTable = ({ problems }: ProblemsTableProps) => {
               <TableRow key={problem.id} className="border-border/20 hover:bg-white/[0.02] transition-colors group">
                 <TableCell className="pl-6">
                   {problem.isCompleted ? (
-                    <CheckCircle className="h-4 w-4 text-green-500/80" />
+                    <div className="flex items-center justify-center h-5 w-5 rounded-full bg-green-500/20 border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]">
+                      <CheckCircle className="h-3 w-3 text-green-500 animate-in zoom-in duration-300" />
+                    </div>
                   ) : (
-                    <div className="h-4 w-4 rounded-full border border-border/40" />
+                    <div className="h-5 w-5 rounded-full border border-border/20 bg-secondary/10" />
                   )}
                 </TableCell>
                 <TableCell>

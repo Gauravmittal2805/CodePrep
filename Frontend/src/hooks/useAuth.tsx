@@ -59,10 +59,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = async () => {
         try {
             await signOut(auth);
+            setUser(null);
+            setIsAdmin(false);
         } catch (error) {
             console.error("Error signing out:", error);
         }
     };
+
+    // Periodic check for blocked status
+    useEffect(() => {
+        if (!user || loading) return;
+
+        const checkStatus = async () => {
+            try {
+                const token = await user.getIdToken(true); // Force refresh to catch revocation
+                const response = await fetch("http://localhost:5001/api/auth/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        uid: user.uid,
+                        email: user.email,
+                    })
+                });
+
+                if (response.status === 403) {
+                    console.warn("[Auth] User is blocked, signing out...");
+                    await logout();
+                    window.location.href = "/"; // Redirect to home/login
+                }
+            } catch (error) {
+                console.error("[Auth] Status check failed:", error);
+            }
+        };
+
+        // Initial check
+        checkStatus();
+
+        // Check every 60 seconds
+        const interval = setInterval(checkStatus, 60000);
+        return () => clearInterval(interval);
+    }, [user, loading]);
 
     return (
         <AuthContext.Provider value={{ user, loading, logout, isAdmin }}>

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Code2, Menu, X, LogOut, User as UserIcon, Lock } from "lucide-react";
+import { Code2, Menu, X, LogOut, User as UserIcon, Lock, Trophy, Layout, Building2, BrainCircuit, Users, BarChart3 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetHeader } from "@/components/ui/sheet";
@@ -36,11 +36,12 @@ const Navbar = ({
   };
 
   const navLinks = [
-    { name: "Problems", href: "/problems" },
-    { name: "Companies", href: "#companies" },
-    { name: "Mock OA", href: "#mock-oa" },
-    { name: "Interview", href: "#interview" },
-    { name: "Leaderboard", href: "#leaderboard" },
+    { name: "Problems", href: "/problems", icon: Layout },
+    { name: "Contest", href: "/contest", icon: Trophy },
+    { name: "Companies", href: "#companies", icon: Building2 },
+    { name: "Mock OA", href: "#mock-oa", icon: BrainCircuit },
+    { name: "Interview", href: "#interview", icon: Users, isNew: true },
+    { name: "Leaderboard", href: "/leaderboard", icon: BarChart3 },
   ];
 
   const handleSignInClick = () => {
@@ -67,14 +68,21 @@ const Navbar = ({
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden lg:flex items-center gap-10">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.href}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-muted-foreground hover:text-foreground transition-all duration-200 flex items-center gap-3 group/nav relative"
                 >
-                  {link.name}
+                  <link.icon className="w-4 h-4 group-hover/nav:text-primary transition-colors" />
+                  <span className="text-sm font-medium">{link.name}</span>
+                  {link.isNew && (
+                    <span className="absolute -top-2 -right-4 px-1 py-0.5 rounded-[4px] bg-primary/20 text-primary text-[8px] font-bold uppercase tracking-tight border border-primary/20 animate-pulse">
+                      New
+                    </span>
+                  )}
+                  <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary group-hover/nav:w-full transition-all duration-300 rounded-full" />
                 </Link>
               ))}
             </div>
@@ -151,10 +159,18 @@ const Navbar = ({
                   <Link
                     key={link.name}
                     to={link.href}
-                    className="block py-2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-3 py-2.5 px-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-all group"
                     onClick={() => setIsOpen(false)}
                   >
-                    {link.name}
+                    <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                      <link.icon className="w-4 h-4" />
+                    </div>
+                    <span className="flex-1 font-medium">{link.name}</span>
+                    {link.isNew && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[8px] font-bold uppercase">
+                        New
+                      </span>
+                    )}
                   </Link>
                 ))}
                 <div className="flex flex-col gap-2 pt-4 border-t border-border/50">

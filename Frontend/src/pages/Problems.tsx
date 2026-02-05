@@ -56,15 +56,8 @@ const mockOASets = [
 ];
 
 
-// Mock streak days
-const streakDays = [
-  new Date(2026, 0, 25),
-  new Date(2026, 0, 26),
-  new Date(2026, 0, 27),
-  new Date(2026, 0, 28),
-  new Date(2026, 0, 30),
-  new Date(2026, 0, 31),
-];
+// Streak dates will be fetched from API
+
 
 const Problems = () => {
   const { user } = useAuth();
@@ -77,6 +70,8 @@ const Problems = () => {
   const [problems, setProblems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activityDays, setActivityDays] = useState<Date[]>([]);
+  const [currentStreak, setCurrentStreak] = useState(0);
 
   // Fetch problems from API
   useEffect(() => {
@@ -114,7 +109,7 @@ const Problems = () => {
         });
 
         console.log('Response status:', response.status, response.statusText);
-        
+
         if (!response.ok) {
           let details = '';
           try {
@@ -156,7 +151,7 @@ const Problems = () => {
             hasUserStatus: !!p.userStatus,
             userStatus: p.userStatus
           });
-          
+
           // Ensure all problems are shown regardless of status
           const userStatus = p.userStatus || { status: 'todo' };
           const problem = {
@@ -166,14 +161,14 @@ const Problems = () => {
             difficulty: p.difficulty,
             acceptance: p.acceptance || "N/A",
             isPremium: false,
-            isCompleted: false,
+            isCompleted: userStatus.status === 'solved',
             attempts: 0,
             lastVerdict: "",
             bestRuntime: "",
-slug: p.slug,
+            slug: p.slug,
             companies: Array.isArray(p.companies) ? p.companies : []
           };
-          
+
           console.log('Transformed problem:', problem);
           return problem;
         });
@@ -190,11 +185,31 @@ slug: p.slug,
       }
     };
 
+    const fetchUserStats = async () => {
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch('http://localhost:5001/api/code/user-stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setActivityDays(result.data.activityDates.map((d: string) => new Date(d)));
+            setCurrentStreak(result.data.currentStreak);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user stats:', err);
+      }
+    };
+
     fetchProblems();
+    fetchUserStats();
   }, [user, difficultyFilter, companyFilter, searchTerm]);
 
   const filteredProblems = problems;
-  
+
   // Debug: Log the problems data
   useEffect(() => {
     console.log('Current problems:', problems);
@@ -288,10 +303,22 @@ slug: p.slug,
 
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <div className="w-32 h-2 rounded-full bg-secondary/30 overflow-hidden">
-                    <div className="w-1/3 h-full bg-green-500 rounded-full" />
-                  </div>
-                  <span className="font-mono text-xs">609/3822 Solved</span>
+                  {(() => {
+                    const solvedCount = problems.filter(p => p.userStatus?.status === 'solved').length;
+                    const totalCount = problems.length || 0;
+                    const percentage = totalCount > 0 ? (solvedCount / totalCount) * 100 : 0;
+                    return (
+                      <>
+                        <div className="w-32 h-2 rounded-full bg-secondary/30 overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="font-mono text-xs">{solvedCount}/{totalCount} Solved</span>
+                      </>
+                    );
+                  })()}
                 </div>
                 <button className="p-2 rounded-lg hover:bg-secondary/40 transition-colors">
                   <ArrowRight className="w-4 h-4" />
@@ -335,7 +362,7 @@ slug: p.slug,
                   <CardTitle className="text-base font-bold">Daily Streak</CardTitle>
                 </div>
                 <div className="text-xs font-bold text-orange-500 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">
-                  7 Days
+                  {currentStreak} Days
                 </div>
               </CardHeader>
 
@@ -347,7 +374,7 @@ slug: p.slug,
                     onSelect={setDate}
                     className="rounded-xl border-0 bg-transparent w-full"
                     modifiers={{
-                      streak: streakDays,
+                      streak: activityDays,
                     }}
                     modifiersClassNames={{
                       streak: "bg-orange-500/20 text-orange-500 font-bold rounded-full border border-orange-500/30",
@@ -365,7 +392,7 @@ slug: p.slug,
                   <div className="flex justify-between gap-1.5">
                     {['W1', 'W2', 'W3', 'W4', 'W5'].map((w) => (
                       <div key={w} className="flex-1 h-1.5 rounded-full bg-secondary/30 overflow-hidden">
-                        <div className={`h-full bg-amber-500/50 ${w === 'W1' || w === 'W2' ? 'w-full' : 'w-0'}`} />
+                        <div className={`h-full bg-amber-500/50 w-0`} />
                       </div>
                     ))}
                   </div>
@@ -374,7 +401,7 @@ slug: p.slug,
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-2 text-primary">
                     <Trophy className="w-4 h-4" />
-                    <span className="text-xs font-bold">Best: 15</span>
+                    <span className="text-xs font-bold">Best: 0</span>
                   </div>
                   <button className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-foreground transition-colors">
                     Rules
@@ -427,15 +454,15 @@ slug: p.slug,
               <div className="space-y-4">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">Points earned</span>
-                  <span className="font-mono text-green-500">+1,240</span>
+                  <span className="font-mono text-green-500">0</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">Contest Rating</span>
-                  <span className="font-mono text-blue-500">1,650</span>
+                  <span className="font-mono text-blue-500">1,200</span>
                 </div>
                 <div className="flex justify-between items-center text-xs border-t border-border/10 pt-4">
                   <span className="text-muted-foreground">Global Rank</span>
-                  <span className="font-mono">#45,210</span>
+                  <span className="font-mono">N/A</span>
                 </div>
               </div>
             </Card>

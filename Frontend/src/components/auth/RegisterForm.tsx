@@ -52,7 +52,7 @@ const RegisterForm = ({ onSignInClick, onSuccess }: RegisterFormProps) => {
             // Sync with MongoDB
             console.log("Starting backend sync for user:", userCredential.user.uid);
             try {
-                const response = await fetch("http://localhost:5005/api/auth/register", {
+                const response = await fetch("http://localhost:5001/api/auth/register", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -65,6 +65,18 @@ const RegisterForm = ({ onSignInClick, onSuccess }: RegisterFormProps) => {
                     }),
                 });
 
+                if (response.status === 403) {
+                    const errorData = await response.json();
+                    await auth.signOut();
+                    toast({
+                        title: "Access Denied",
+                        description: errorData.error || "This account has been blocked.",
+                        variant: "destructive",
+                    });
+                    setIsLoading(false);
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error(`Backend sync failed with status: ${response.status}`);
                 }
@@ -72,11 +84,14 @@ const RegisterForm = ({ onSignInClick, onSuccess }: RegisterFormProps) => {
                 console.log("Backend sync successful");
             } catch (syncError: any) {
                 console.error("Failed to sync with backend:", syncError);
-                toast({
-                    title: "Sync Warning",
-                    description: "Account created but failed to save in database. Please contact support.",
-                    variant: "destructive",
-                });
+                // If it's not a 403 (which we handled above), show general error
+                if (isLoading) {
+                    toast({
+                        title: "Sync Warning",
+                        description: "Account created but failed to save in database. Please contact support.",
+                        variant: "destructive",
+                    });
+                }
             }
 
             onSuccess?.();

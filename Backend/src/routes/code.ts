@@ -2,12 +2,15 @@ import { Router, Request, Response } from 'express';
 import { CodeExecutionService } from '../services/codeExecutionService';
 import { body, validationResult } from 'express-validator';
 import Problem from '../models/Problem';
+import Submission from '../models/Submission';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
 // Execute code
 router.post(
   '/execute',
+  requireAuth,
   [
     body('code').isString().notEmpty(),
     body('language').isIn(['javascript', 'python', 'java', 'cpp']),
@@ -26,7 +29,7 @@ router.post(
     try {
       const { code, language, input } = req.body;
       const result = await CodeExecutionService.executeCode(code, language, input);
-      
+
       res.json({
         success: !result.isError,
         output: result.output,
@@ -46,11 +49,13 @@ router.post(
 // Test code against test cases
 router.post(
   '/test',
+  requireAuth,
   [
     body('code').isString().notEmpty(),
     body('language').isIn(['javascript', 'python', 'java', 'cpp']),
     body('problemIdentifier').optional().isString(),
     body('includeDetails').optional().isBoolean(),
+    body('runHidden').optional().isBoolean(), // Add runHidden flag
     body('testCases').optional().isArray(),
     body('testCases.*.input').optional().custom((value) => {
       if (typeof value === 'string') return true;
@@ -66,7 +71,9 @@ router.post(
     }
 
     try {
-      const { code, language, testCases, problemIdentifier, includeDetails } = req.body;
+      const { code, language, testCases, problemIdentifier, includeDetails, runHidden } = req.body;
+
+      console.log('Test Request:', { problemIdentifier, runHidden, includeDetails });
 
       let effectiveTestCases: Array<{ input: string; expectedOutput: string }> = [];
 
@@ -82,7 +89,7 @@ router.post(
 
         const problem = await Problem.findOne({
           $or: [{ slug: problemIdentifier }, { id: problemIdentifier }]
-        }).select('test_cases');
+        }).select('test_cases hidden_test_cases');
 
         if (!problem) {
           return res.status(404).json({
@@ -91,7 +98,24 @@ router.post(
           });
         }
 
-        effectiveTestCases = (problem.test_cases || []).map((tc: any) => ({
+        // Robust selection logic
+        const rawPublic = problem.test_cases || [];
+        const rawHidden = problem.hidden_test_cases || [];
+
+        // For "Run" (public), ensure we only take non-hidden cases from the main list
+        // If the main list has isHidden property, respect it.
+        const effectivePublic = rawPublic.filter((tc: any) => !tc.isHidden);
+
+        // For "Submit" (hidden), prioritize hidden_test_cases. 
+        // If empty, look for hidden ones in the main list.
+        // Also filter out test cases with empty input/output (default empty test cases)
+        let effectiveHidden = rawHidden.length > 0
+          ? rawHidden.filter((tc: any) => tc.input && tc.input.trim() !== '' && tc.output !== undefined)
+          : rawPublic.filter((tc: any) => tc.isHidden);
+
+        const sourceTestCases = runHidden ? effectiveHidden : effectivePublic;
+
+        effectiveTestCases = sourceTestCases.map((tc: any) => ({
           input: (tc?.input ?? '') as any,
           expectedOutput: String(tc.output ?? '')
         }));
@@ -100,26 +124,64 @@ router.post(
       if (!effectiveTestCases.length) {
         return res.status(400).json({
           success: false,
-          error: 'No test cases available for this problem'
+          error: runHidden ? 'No hidden test cases available for this problem' : 'No test cases available for this problem'
         });
       }
 
       const results = await CodeExecutionService.testCode(code, language, effectiveTestCases);
-      
+
       // Calculate summary
       const passedCount = results.filter(r => r.passed).length;
       const totalTests = results.length;
       const allPassed = passedCount === totalTests;
 
-      const verdict = allPassed ? 'AC' : 'WA';
-      
+      let verdict = allPassed ? 'AC' : 'WA';
+
+      // Check for TLE in individual results
+      const hasTLE = results.some(r => r.error && r.error.toLowerCase().includes('timed out'));
+      if (!allPassed && hasTLE) {
+        verdict = 'TLE';
+      }
+
+      // Sanitize results for hidden test cases
+      let finalResults = results;
+      if (runHidden) {
+        finalResults = results.map(r => ({
+          ...r,
+          input: 'Hidden',
+          expectedOutput: 'Hidden',
+          actualOutput: 'Hidden',
+          error: r.passed ? '' : (r.error ? r.error : 'Test case failed')
+        }));
+      }
+
+      // Save submission if it's a "Submit" run (runHidden = true)
+      if (runHidden && req.user) {
+        try {
+          await Submission.create({
+            uid: req.user.uid,
+            problemIdentifier,
+            code,
+            language,
+            verdict,
+            passedCount,
+            totalTests,
+            executionTime: Math.max(...results.map(r => r.executionTime), 0),
+            results: finalResults
+          });
+        } catch (dbError) {
+          console.error('Failed to save submission:', dbError);
+          // Don't fail the response just because DB save failed
+        }
+      }
+
       res.json({
         success: true,
         allPassed,
         passedCount,
         totalTests,
         verdict,
-        results: includeDetails ? results : undefined
+        results: includeDetails || runHidden ? finalResults : undefined
       });
     } catch (error) {
       console.error('Test execution error:', error);
@@ -130,5 +192,95 @@ router.post(
     }
   }
 );
+
+// Get submission history for a problem
+router.get('/submissions/:problemIdentifier', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { problemIdentifier } = req.params;
+    const uid = req.user?.uid;
+
+    if (!uid) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const submissions = await Submission.find({
+      uid,
+      problemIdentifier
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: submissions
+    });
+  } catch (error) {
+    console.error('Fetch submissions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while fetching submissions'
+    });
+  }
+});
+
+/**
+ * @route   GET /api/code/user-stats
+ * @desc    Get user's activity dates and current streak
+ */
+router.get('/user-stats', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const uid = req.user?.uid;
+    if (!uid) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Fetch unique days where user has at least one successful submission
+    const submissions = await Submission.find({
+      uid,
+      verdict: 'AC'
+    }).select('createdAt');
+
+    // Extract unique dates (normalized to midnight)
+    const dateSet = new Set<number>();
+    submissions.forEach(sub => {
+      const d = new Date(sub.createdAt);
+      dateSet.add(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+    });
+
+    const sortedDates = Array.from(dateSet).sort((a, b) => b - a); // Newest first
+
+    // Calculate streak
+    let currentStreak = 0;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterday = today - 86400000;
+
+    if (sortedDates.length > 0) {
+      const mostRecent = sortedDates[0];
+
+      // Streak continues if most recent activity is today or yesterday
+      if (mostRecent === today || mostRecent === yesterday) {
+        currentStreak = 1;
+        // Walk back through sorted dates
+        for (let i = 0; i < sortedDates.length - 1; i++) {
+          if (sortedDates[i] - sortedDates[i + 1] === 86400000) {
+            currentStreak++;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        activityDates: sortedDates.map(ts => new Date(ts)),
+        currentStreak
+      }
+    });
+  } catch (error) {
+    console.error('Fetch user stats error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch user stats' });
+  }
+});
 
 export default router;

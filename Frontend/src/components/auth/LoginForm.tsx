@@ -34,7 +34,33 @@ const LoginForm = ({ onSignUpClick, onSuccess }: LoginFormProps) => {
     const loginUser = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Sync with backend to check status (e.g. if blocked)
+            const syncResponse = await fetch("http://localhost:5001/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    uid: user.uid,
+                    email: user.email,
+                    fullName: user.displayName || email.split('@')[0],
+                    photoURL: user.photoURL
+                })
+            });
+
+            if (syncResponse.status === 403) {
+                const errorData = await syncResponse.json();
+                await auth.signOut(); // Immediately sign out if blocked
+                toast({
+                    title: "Access Denied",
+                    description: errorData.error || "Your account has been blocked.",
+                    variant: "destructive",
+                });
+                setIsLoading(false);
+                return;
+            }
+
             toast({
                 title: "Welcome back!",
                 description: "Successfully signed in.",

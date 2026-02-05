@@ -1,12 +1,14 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITestCase {
+    toObject(): any;
     input: string;
     output: string;
     isHidden?: boolean;
 }
 
 export interface IHiddenTestCase extends ITestCase {
+    toObject(): any;
     description?: string;
     points?: number;
 }
@@ -35,6 +37,11 @@ export interface IProblem extends Document {
     judge_type: string;
     notes: string;
     source: string;
+    starterCode?: {
+        [key: string]: string;
+    };
+    status: "Draft" | "Published";
+    isReported: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -76,7 +83,7 @@ const ProblemSchema: Schema = new Schema({
     space_complexity: { type: String, required: true },
     tags: [{ type: String }],
     test_cases: [TestCaseSchema],
-    hidden_test_cases: { 
+    hidden_test_cases: {
         type: [HiddenTestCaseSchema],
         default: Array(10).fill(null).map(() => ({
             input: '',
@@ -87,7 +94,20 @@ const ProblemSchema: Schema = new Schema({
     },
     judge_type: { type: String, required: true },
     notes: { type: String },
-    source: { type: String }
+    source: { type: String },
+    starterCode: {
+        type: Object,
+        default: {}
+    },
+    status: {
+        type: String,
+        enum: ["Draft", "Published"],
+        default: "Published"
+    },
+    isReported: {
+        type: Boolean,
+        default: false
+    }
 }, {
     timestamps: true
 });
