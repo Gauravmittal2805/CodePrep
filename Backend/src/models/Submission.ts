@@ -11,6 +11,8 @@ export interface ISubmission extends Document {
     executionTime: number;
     memory?: number;
     results?: any[];
+    source?: 'PRACTICE' | 'MOCK_OA' | 'CONTEST';
+    contestId?: string;
     createdAt: Date;
 }
 
@@ -25,6 +27,8 @@ const SubmissionSchema: Schema = new Schema({
     executionTime: { type: Number, default: 0 },
     memory: { type: Number },
     results: { type: Array },
+    source: { type: String, enum: ['PRACTICE', 'MOCK_OA', 'CONTEST'], default: 'PRACTICE', index: true },
+    contestId: { type: String, index: true }
 }, {
     timestamps: true
 });

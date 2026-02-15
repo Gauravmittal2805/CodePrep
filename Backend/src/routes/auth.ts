@@ -14,6 +14,23 @@ router.post("/register", async (req, res) => {
     try {
         let user = await User.findOne({ uid });
 
+        if (!user) {
+            // Check if user exists by email (to handle cases where UID changed but email is same)
+            // This prevents E11000 duplicate key error on email
+            user = await User.findOne({ email });
+            if (user) {
+                console.log(`[Auth] User found by email ${email}, syncing UID...`);
+                user.uid = uid; // Update UID to match current Firebase session
+                if (!user.fullName || (fullName && fullName !== 'Anonymous User')) {
+                    user.fullName = fullName || 'Anonymous User';
+                }
+                if (!user.photoURL && photoURL) {
+                    user.photoURL = photoURL;
+                }
+                await user.save();
+            }
+        }
+
         if (user) {
             if (user.isBlocked) {
                 console.warn(`[Auth] Blocked user attempt to sign in: ${uid}`);
@@ -23,14 +40,14 @@ router.post("/register", async (req, res) => {
                     reason: user.blockReason || "Violation of platform terms."
                 });
             }
-            console.log("User already exists in MongoDB:", uid);
-            return res.status(200).json({ msg: "User already exists", user });
+            console.log("User successfully synced/verified:", uid);
+            return res.status(200).json({ msg: "User verified", user });
         }
 
         user = new User({
             uid,
             email,
-            fullName,
+            fullName: fullName || 'Anonymous User',
             photoURL,
             role: email.includes('admin') ? 'admin' : 'user'
         });

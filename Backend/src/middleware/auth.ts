@@ -125,3 +125,21 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
         });
     }
 };
+
+export const adminCheck = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ success: false, error: 'Authentication required' });
+        }
+
+        const isAdmin = !!(req.user.admin === true || req.user.email?.includes('admin'));
+
+        if (!isAdmin) {
+            return res.status(403).json({ success: false, error: 'Admin access required' });
+        }
+
+        next();
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Internal server error in admin check' });
+    }
+};

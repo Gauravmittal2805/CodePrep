@@ -1,3 +1,4 @@
+
 import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -11,6 +12,14 @@ import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
+import Companies from "./pages/Companies";
+import CompanyDetail from "./pages/CompanyDetail";
+import MockOAAttempt from "./pages/MockOAAttempt";
+import Contests from "./pages/Contests";
+import ContestArena from "./pages/ContestArena";
+import InterviewDashboard from "./pages/InterviewDashboard";
+import InterviewRoom from "./pages/InterviewRoom";
+import InterviewReport from "./pages/InterviewReport";
 import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -30,6 +39,18 @@ const App = () => (
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/companies" element={<Companies />} />
+            <Route path="/companies/:id" element={<CompanyDetail />} />
+            <Route path="/mockoa/attempt/:id" element={<MockOAAttempt />} />
+            <Route path="/contest" element={<Contests />} />
+            <Route path="/contest/:contestId/arena" element={<ContestArena />} />
+            <Route path="/contest/:contestId/problem/:id" element={<ProblemEditor />} />
+
+            {/* Interview Routes */}
+            <Route path="/interview" element={<InterviewDashboard />} />
+            <Route path="/interview/room/:id" element={<InterviewRoom />} />
+            <Route path="/interview/report/:id" element={<InterviewReport />} />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-    ChevronLeft,
-    Settings,
-    Info,
     Play,
     Send,
-    BrainCircuit,
-    Building2,
-    ArrowRight,
+    ChevronLeft,
     Maximize2,
-    MessageSquare,
-    ThumbsUp,
+    Settings,
+    Building2,
     History
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
@@ -26,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import { dashboardApi } from "@/services/dashboardApi"; // Import if needed or use local fetch
 
 // Function to generate code templates based on problem title and language
 const getDefaultCodeTemplate = (language: string, problem?: any) => {
@@ -83,7 +77,7 @@ function solve(input) {
 };
 
 const ProblemEditor = () => {
-    const { id } = useParams();
+    const { id, contestId } = useParams();
     const { user } = useAuth();
 
     // State declarations
@@ -93,7 +87,6 @@ const ProblemEditor = () => {
     const [code, setCode] = useState('');
     const [language, setLanguage] = useState("java");
     const lastAutoTemplateRef = useRef<string>('');
-    const [isAiTutorOpen, setIsAiTutorOpen] = useState(false);
     const [testSummary, setTestSummary] = useState<{ verdict: string; passedCount: number; totalTests: number } | null>(null);
     const [testResults, setTestResults] = useState<any[] | null>(null);
     const [isRunningTests, setIsRunningTests] = useState(false);
@@ -211,7 +204,8 @@ const ProblemEditor = () => {
                     language,
                     problemIdentifier: problem.slug || problem.id || id,
                     includeDetails: true,
-                    runHidden: isSubmit
+                    runHidden: isSubmit,
+                    contestId: contestId
                 })
             });
 
@@ -268,26 +262,23 @@ const ProblemEditor = () => {
     };
 
     const isInitialLoadRef = useRef<boolean>(true);
-    const [isCodeLoaded, setIsCodeLoaded] = useState(false);
 
-    // Auto-save to localStorage removed as per user request to always show source code
-
-    // Update code template when problem, language, user, or submissions changes
+    // Update code template only when language or problem definition changes
     useEffect(() => {
         const loadInitialCode = async () => {
-            // Always use default template as per user request
-            const defaultCode = getDefaultCodeTemplate(language, problem);
-            setCode(defaultCode);
-            lastAutoTemplateRef.current = defaultCode;
-            setIsCodeLoaded(true);
+            // Only set default if code is empty or it's a fresh problem load
+            if (!code || code === lastAutoTemplateRef.current) {
+                const defaultCode = getDefaultCodeTemplate(language, problem);
+                setCode(defaultCode);
+                lastAutoTemplateRef.current = defaultCode;
+            }
         };
 
         loadInitialCode();
-    }, [problem, language, submissions, user]);
+    }, [problem?.id, language]);
 
     // Reset initialization when problem ID or user changes
     useEffect(() => {
-        setIsCodeLoaded(false);
         setCode(''); // CRITICAL: Reset code state to prevent leakage
         setSubmissions([]); // Reset submissions as well
         setTestSummary(null);
@@ -374,7 +365,7 @@ const ProblemEditor = () => {
             {/* Header */}
             <header className="h-12 border-b border-border/40 flex items-center justify-between px-4 bg-[#1a1a1a]">
                 <div className="flex items-center gap-4">
-                    <Link to="/problems" className="hover:bg-secondary/30 p-1.5 rounded-md transition-colors">
+                    <Link to={contestId ? `/contest/${contestId}/arena` : "/problems"} className="hover:bg-secondary/30 p-1.5 rounded-md transition-colors">
                         <ChevronLeft className="w-5 h-5" />
                     </Link>
                     <div className="h-4 w-px bg-border/40" />
@@ -404,12 +395,16 @@ const ProblemEditor = () => {
                                         <TabsTrigger value="description" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 px-0 translate-y-[1px]">
                                             Description
                                         </TabsTrigger>
-                                        <TabsTrigger value="submissions" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 px-0 translate-y-[1px]">
-                                            Submissions
-                                        </TabsTrigger>
-                                        <TabsTrigger value="discussions" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 px-0 translate-y-[1px]">
-                                            Discussions
-                                        </TabsTrigger>
+                                        {!contestId && (
+                                            <>
+                                                <TabsTrigger value="submissions" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 px-0 translate-y-[1px]">
+                                                    Submissions
+                                                </TabsTrigger>
+                                                <TabsTrigger value="discussions" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 px-0 translate-y-[1px]">
+                                                    Discussions
+                                                </TabsTrigger>
+                                            </>
+                                        )}
                                     </TabsList>
                                 </div>
 
@@ -420,23 +415,24 @@ const ProblemEditor = () => {
                                         ) : !problem ? (
                                             <div className="text-sm text-muted-foreground">Problem not found.</div>
                                         ) : (
-                                            <div>
-                                                <h2 className="text-2xl font-bold mb-4">{problem.title}</h2>
-                                                <div className="flex items-center gap-2 mb-6">
-                                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20">
-                                                        {problem.difficulty}
-                                                    </Badge>
-                                                    {Array.isArray(problem.companies) && problem.companies.length > 0 && (
-                                                        <Badge variant="secondary" className="bg-secondary/30">
-                                                            <Building2 className="w-3 h-3 mr-1" />
-                                                            {problem.companies[0]}
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <h2 className="text-2xl font-bold mb-4">{problem.title}</h2>
+                                                    <div className="flex items-center gap-2 mb-6">
+                                                        <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20">
+                                                            {problem.difficulty}
                                                         </Badge>
-                                                    )}
+                                                        {Array.isArray(problem.companies) && problem.companies.length > 0 && (
+                                                            <Badge variant="secondary" className="bg-secondary/30">
+                                                                <Building2 className="w-3 h-3 mr-1" />
+                                                                {problem.companies[0]}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                                        {problem.statement}
+                                                    </p>
                                                 </div>
-
-                                                <p className="text-muted-foreground leading-relaxed mb-6 whitespace-pre-wrap">
-                                                    {problem.statement}
-                                                </p>
 
                                                 <div className="space-y-6">
                                                     <div className="space-y-2">
@@ -445,14 +441,12 @@ const ProblemEditor = () => {
                                                             {problem.input_format}
                                                         </div>
                                                     </div>
-
                                                     <div className="space-y-2">
                                                         <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Output Format</h3>
                                                         <div className="bg-black/20 rounded-lg p-4 text-sm whitespace-pre-wrap border border-border/20">
                                                             {problem.output_format}
                                                         </div>
                                                     </div>
-
                                                     <div className="space-y-4">
                                                         <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Sample</h3>
                                                         <div className="bg-black/20 rounded-lg p-4 font-mono text-sm space-y-4 border border-border/20">
@@ -471,69 +465,73 @@ const ProblemEditor = () => {
                                         )}
                                     </TabsContent>
 
-                                    <TabsContent value="submissions" className="m-0 overflow-y-auto">
-                                        <div className="space-y-4">
-                                            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Submission History</h3>
-                                            {isLoadingSubmissions ? (
-                                                <div className="text-muted-foreground text-sm">Loading history...</div>
-                                            ) : submissions.length === 0 ? (
-                                                <div className="text-center py-12 bg-black/10 rounded-xl border border-dashed border-border/20">
-                                                    <History className="w-8 h-8 mx-auto mb-3 opacity-20" />
-                                                    <p className="text-sm text-muted-foreground">No submissions yet.</p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {submissions.map((sub, idx) => (
-                                                        <div key={sub._id || idx} className="p-3 rounded-lg bg-black/20 border border-border/20 hover:border-primary/30 transition-colors">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <span className={cn("font-bold text-sm", sub.verdict === 'AC' ? "text-green-400" : "text-red-400")}>
-                                                                    {sub.verdict === 'AC' ? 'Accepted' : 'Wrong Answer'}
-                                                                </span>
-                                                                <span className="text-[10px] text-muted-foreground opacity-60">
-                                                                    {new Date(sub.createdAt).toLocaleString()}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                                                <div>Passed: <span className="text-foreground">{sub.passedCount}/{sub.totalTests}</span></div>
-                                                                <Badge variant="outline" className="text-[10px] h-4 px-1 opacity-70 uppercase">
-                                                                    {sub.language}
-                                                                </Badge>
-                                                            </div>
+                                    {!contestId && (
+                                        <>
+                                            <TabsContent value="submissions" className="m-0 overflow-y-auto">
+                                                <div className="space-y-4">
+                                                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Submission History</h3>
+                                                    {isLoadingSubmissions ? (
+                                                        <div className="text-muted-foreground text-sm">Loading history...</div>
+                                                    ) : submissions.length === 0 ? (
+                                                        <div className="text-center py-12 bg-black/10 rounded-xl border border-dashed border-border/20">
+                                                            <History className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                                                            <p className="text-sm text-muted-foreground">No submissions yet.</p>
                                                         </div>
-                                                    ))}
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {submissions.map((sub, idx) => (
+                                                                <div key={sub._id || idx} className="p-3 rounded-lg bg-black/20 border border-border/20 hover:border-primary/30 transition-colors">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <span className={cn("font-bold text-sm", sub.verdict === 'AC' ? "text-green-400" : "text-red-400")}>
+                                                                            {sub.verdict === 'AC' ? 'Accepted' : 'Wrong Answer'}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-muted-foreground opacity-60">
+                                                                            {new Date(sub.createdAt).toLocaleString()}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                                                        <div>Passed: <span className="text-foreground">{sub.passedCount}/{sub.totalTests}</span></div>
+                                                                        <Badge variant="outline" className="text-[10px] h-4 px-1 opacity-70 uppercase">
+                                                                            {sub.language}
+                                                                        </Badge>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </TabsContent>
+                                            </TabsContent>
 
-                                    <TabsContent value="discussions" className="m-0">
-                                        <div className="space-y-4">
-                                            <textarea
-                                                value={commentContent}
-                                                onChange={(e) => setCommentContent(e.target.value)}
-                                                placeholder="Share your thoughts..."
-                                                className="w-full h-24 bg-black/20 border border-border/20 rounded-lg p-3 text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none"
-                                            />
-                                            <Button size="sm" onClick={postComment} disabled={isPostingComment || !commentContent.trim()}>
-                                                {isPostingComment ? 'Posting...' : 'Post Comment'}
-                                            </Button>
-                                            <div className="space-y-4 mt-6">
-                                                {isLoadingComments ? (
-                                                    <p className="text-xs text-muted-foreground">Loading comments...</p>
-                                                ) : (
-                                                    comments.map(comment => (
-                                                        <div key={comment._id} className="p-4 rounded-xl bg-black/20 border border-border/10">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <span className="text-[13px] font-bold">{comment.userName}</span>
-                                                                <span className="text-[10px] text-muted-foreground">• {new Date(comment.createdAt).toLocaleDateString()}</span>
-                                                            </div>
-                                                            <p className="text-sm text-muted-foreground/90">{comment.content}</p>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    </TabsContent>
+                                            <TabsContent value="discussions" className="m-0">
+                                                <div className="space-y-4">
+                                                    <textarea
+                                                        value={commentContent}
+                                                        onChange={(e) => setCommentContent(e.target.value)}
+                                                        placeholder="Share your thoughts..."
+                                                        className="w-full h-24 bg-black/20 border border-border/20 rounded-lg p-3 text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none text-white"
+                                                    />
+                                                    <Button size="sm" onClick={postComment} disabled={isPostingComment || !commentContent.trim()}>
+                                                        {isPostingComment ? 'Posting...' : 'Post Comment'}
+                                                    </Button>
+                                                    <div className="space-y-4 mt-6">
+                                                        {isLoadingComments ? (
+                                                            <p className="text-xs text-muted-foreground">Loading comments...</p>
+                                                        ) : (
+                                                            comments.map(comment => (
+                                                                <div key={comment._id} className="p-4 rounded-xl bg-black/20 border border-border/10">
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <span className="text-[13px] font-bold text-white">{comment.userName}</span>
+                                                                        <span className="text-[10px] text-muted-foreground">• {new Date(comment.createdAt).toLocaleDateString()}</span>
+                                                                    </div>
+                                                                    <p className="text-sm text-muted-foreground/90">{comment.content}</p>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </TabsContent>
+                                        </>
+                                    )}
                                 </div>
                             </Tabs>
                         </div>
@@ -548,7 +546,7 @@ const ProblemEditor = () => {
                                 <div className="h-full bg-[#1e1e1e] flex flex-col">
                                     <div className="h-10 border-b border-border/40 bg-[#1a1a1a] flex items-center justify-between px-4">
                                         <Select value={language} onValueChange={setLanguage}>
-                                            <SelectTrigger className="h-7 w-[100px] bg-secondary/20 border-border/40 text-xs">
+                                            <SelectTrigger className="h-7 w-[100px] bg-secondary/20 border-border/40 text-xs text-white">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -601,31 +599,172 @@ const ProblemEditor = () => {
                                         </div>
                                     </div>
                                     <div className="flex-1 p-4 font-mono text-xs text-muted-foreground bg-black/10 overflow-y-auto">
-                                        {testSummary && (
-                                            <div className={`mb-4 p-3 rounded-lg border ${testSummary.verdict === 'AC' ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-bold">Verdict: <span className={testSummary.verdict === 'AC' ? 'text-green-400' : 'text-red-400'}>{testSummary.verdict}</span></span>
-                                                    <span>{testSummary.passedCount} / {testSummary.totalTests} passed</span>
+                                        {testSummary && isSubmissionResult ? (
+                                            <div className="flex flex-col h-full gap-6">
+                                                {/* Submission Verdict Banner */}
+                                                <div className={cn(
+                                                    "p-6 rounded-2xl border",
+                                                    testSummary.verdict === 'AC'
+                                                        ? "bg-green-500/10 border-green-500/20 text-green-400"
+                                                        : "bg-red-500/10 border-red-500/20 text-red-400"
+                                                )}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-sm font-black uppercase tracking-widest">
+                                                            Verdict: {testSummary.verdict === 'AC' ? 'Accepted' : 'Wrong Answer'}
+                                                        </span>
+                                                        <span className="text-xs font-bold opacity-80">
+                                                            {testSummary.passedCount} / {testSummary.totalTests} test cases passed
+                                                        </span>
+                                                    </div>
+                                                    {testSummary.verdict === 'AC' && (
+                                                        <p className="text-xs font-bold flex items-center gap-2">
+                                                            🎉 Congrats! You have passed all hidden test cases.
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Submission Body */}
+                                                <div className="flex flex-1 gap-8">
+                                                    {/* Sidebar */}
+                                                    <div className="w-1/4 space-y-4">
+                                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-6">Submission Result</h4>
+                                                        <div className="space-y-2">
+                                                            {testResults?.map((res, i) => (
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => setSelectedTestCase(i)}
+                                                                    className={cn(
+                                                                        "w-full text-left p-3 rounded-xl transition-all flex items-center gap-3",
+                                                                        selectedTestCase === i ? "bg-white/5 border border-white/10" : "hover:bg-white/5"
+                                                                    )}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "w-2 h-2 rounded-full",
+                                                                        res.passed ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+                                                                    )} />
+                                                                    <span className={cn(
+                                                                        "text-[11px] font-bold",
+                                                                        selectedTestCase === i ? "text-white" : "text-muted-foreground"
+                                                                    )}>
+                                                                        Testcase {i + 1}
+                                                                    </span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Main Content */}
+                                                    <div className="flex-1 space-y-8">
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Compiler Message</h4>
+                                                            <div className="bg-black/40 rounded-2xl p-6 border border-white/5">
+                                                                <span className={cn(
+                                                                    "text-sm font-bold",
+                                                                    testResults?.[selectedTestCase]?.passed ? "text-green-400" : "text-red-400"
+                                                                )}>
+                                                                    {testResults?.[selectedTestCase]?.passed ? "Success" : "Wrong Answer"}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Time (sec)</h4>
+                                                            <div className="bg-black/40 rounded-2xl p-6 border border-white/5">
+                                                                <span className="text-sm font-bold text-white/90">
+                                                                    {(testResults?.[selectedTestCase]?.executionTime / 1000).toFixed(4)} s
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        )}
-                                        {testResults && (
-                                            <div className="space-y-2">
-                                                {testResults.map((res, i) => (
-                                                    <div key={i} className={`p-2 rounded border ${res.passed ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <span className={res.passed ? 'text-green-400' : 'text-red-400'}>Test Case {i + 1}: {res.passed ? 'Passed' : 'Failed'}</span>
-                                                            <span className="opacity-60">{res.executionTime}ms</span>
+                                        ) : testResults ? (
+                                            <div className="flex flex-col gap-10">
+                                                {testSummary && (
+                                                    <div className={`mb-4 p-3 rounded-lg border ${testSummary.verdict === 'AC' ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-bold uppercase tracking-wider text-[10px]">
+                                                                Verdict: <span className={testSummary.verdict === 'AC' ? 'text-green-400' : 'text-red-400'}>{testSummary.verdict}</span>
+                                                            </span>
+                                                            <span className="text-[10px] font-bold opacity-70">{testSummary.passedCount} / {testSummary.totalTests} Passed</span>
                                                         </div>
-                                                        {!res.passed && res.error && <p className="text-red-400/80 mt-1">{res.error}</p>}
+                                                    </div>
+                                                )}
+                                                {testResults.map((result, i) => (
+                                                    <div key={i} className="space-y-6 border-b border-white/5 pb-10 last:border-0">
+                                                        <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-widest">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className={cn(
+                                                                    "w-5 h-5 rounded flex items-center justify-center text-[8px]",
+                                                                    result.passed ? "bg-green-500 text-black" : "bg-red-500 text-white"
+                                                                )}>
+                                                                    {i + 1}
+                                                                </span>
+                                                                <span className="text-muted-foreground">Test Case {i + 1} {result.isHidden && "(Hidden)"}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {result.isHidden && (
+                                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold border border-amber-500/20 bg-amber-500/5 text-amber-500 uppercase tracking-tighter">
+                                                                        Hidden
+                                                                    </span>
+                                                                )}
+                                                                <span className={cn(
+                                                                    "px-2 py-0.5 rounded-full text-[9px] font-bold border",
+                                                                    result.passed
+                                                                        ? "text-green-400 border-green-500/20 bg-green-500/5"
+                                                                        : "text-red-400 border-red-500/20 bg-red-500/5"
+                                                                )}>
+                                                                    {result.passed ? "Passed" : "Failed"} • {result.executionTime}ms
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-6 px-1">
+                                                            <div className="space-y-2">
+                                                                <div className="text-[9px] uppercase font-black opacity-30 tracking-tighter">Input</div>
+                                                                <pre className="p-4 rounded-xl bg-black/40 text-white/90 whitespace-pre-wrap border border-white/5 text-[11px] font-mono leading-relaxed">
+                                                                    {result.isHidden ? "[HIDDEN TEST CASE]" : (result.input || "N/A")}
+                                                                </pre>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                <div className="space-y-2">
+                                                                    <div className="text-[9px] uppercase font-black opacity-30 tracking-tighter">Expected Output</div>
+                                                                    <pre className="p-4 rounded-xl bg-black/40 text-green-400/80 whitespace-pre-wrap border border-white/5 text-[11px] font-mono leading-relaxed">
+                                                                        {result.isHidden ? "[HIDDEN TEST CASE]" : (result.expectedOutput || "N/A")}
+                                                                    </pre>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <div className="text-[9px] uppercase font-black opacity-30 tracking-tighter">Actual Output</div>
+                                                                    <pre className={cn(
+                                                                        "p-4 rounded-xl bg-black/40 whitespace-pre-wrap border border-white/5 text-[11px] font-mono leading-relaxed",
+                                                                        result.passed ? "text-green-400/80" : "text-red-400/80"
+                                                                    )}>
+                                                                        {result.isHidden ? "[HIDDEN TEST CASE]" : (result.actualOutput || "N/A")}
+                                                                    </pre>
+                                                                </div>
+                                                            </div>
+
+                                                            {!result.passed && result.error && (
+                                                                <div className="space-y-2">
+                                                                    <div className="text-[9px] uppercase font-black text-red-400 opacity-60 tracking-tighter">Runtime Error</div>
+                                                                    <div className="p-4 rounded-xl bg-red-400/5 text-red-400/90 text-[11px] font-mono border border-red-400/10 italic">
+                                                                        {result.error}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
-                                        )}
+                                        ) : null}
+
                                         {!testSummary && !isRunningTests && (
-                                            <div className="h-full flex flex-col items-center justify-center opacity-40">
-                                                <Play className="w-8 h-8 mb-2" />
-                                                <p>Click "Run Tests" to see results</p>
+                                            <div className="h-full flex flex-col items-center justify-center opacity-40 py-12">
+                                                <div className="w-12 h-12 rounded-full border-2 border-dashed border-primary/40 flex items-center justify-center mb-4">
+                                                    <Play className="w-6 h-6 text-primary" />
+                                                </div>
+                                                <p className="font-bold uppercase tracking-widest text-[10px]">Run Code to see results</p>
                                             </div>
                                         )}
                                     </div>

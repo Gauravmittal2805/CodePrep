@@ -45,7 +45,7 @@ router.get('/', requireAuth, async (req: any, res) => {
         }
 
         if (company && company !== 'all') {
-            filter.companies = { $in: [company] };
+            filter.companies = { $in: [new RegExp(`^${company}$`, 'i')] };
         }
 
         if (tag) {

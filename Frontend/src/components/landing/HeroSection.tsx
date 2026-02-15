@@ -3,9 +3,10 @@ import { ArrowRight, Play, Terminal, Trophy, Users } from "lucide-react";
 
 interface HeroSectionProps {
   onGetStarted?: () => void;
+  onExploreCompanies?: () => void;
 }
 
-const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
+const HeroSection = ({ onGetStarted, onExploreCompanies }: HeroSectionProps) => {
   return (
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
       {/* Background Effects */}
@@ -38,7 +39,7 @@ const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
                 Start Practicing Free
                 <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button variant="hero-outline" size="xl">
+              <Button variant="hero-outline" size="xl" onClick={onExploreCompanies}>
                 <Play className="w-5 h-5" />
                 Explore Companies
               </Button>
@@ -110,8 +111,8 @@ const HeroSection = ({ onGetStarted }: HeroSectionProps) => {
                   >
                     <div className="flex items-center gap-3">
                       <span className={`text-sm font-bold ${user.rank === 1 ? "text-primary" :
-                          user.rank === 2 ? "text-gray-400" :
-                            "text-orange-400"
+                        user.rank === 2 ? "text-gray-400" :
+                          "text-orange-400"
                         }`}>
                         #{user.rank}
                       </span>

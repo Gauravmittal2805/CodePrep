@@ -10,6 +10,12 @@ import codeRoutes from "./routes/code";
 import discussionRoutes from "./routes/discussions";
 import adminRoutes from "./routes/admin";
 import dashboardRoutes from "./routes/dashboard";
+import companyRoutes from "./routes/companies";
+import aiRoutes from "./routes/ai";
+import mockOARoutes from "./routes/mockOA";
+import companyPatternRoutes from "./routes/companyPatterns";
+import contestRoutes from "./routes/contest";
+import interviewRoutes from "./routes/interviews";
 
 (() => {
     const candidates = [
@@ -46,6 +52,12 @@ app.use("/api/code", codeRoutes);
 app.use("/api/discussions", discussionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/mockoa", mockOARoutes);
+app.use("/api/company-patterns", companyPatternRoutes);
+app.use("/api/contests", contestRoutes);
+app.use("/api/interviews", interviewRoutes);
 
 // MongoDB Connection
 mongoose

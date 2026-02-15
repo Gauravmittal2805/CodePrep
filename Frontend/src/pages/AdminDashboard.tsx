@@ -39,9 +39,24 @@ import {
     Trash2,
     Play,
     Tag,
-    Layers
+    Layers,
+    Info,
+    Activity,
+    Cpu,
+    Zap,
+    Server,
+    HardDrive,
+    XCircle,
+    Map
 } from "lucide-react";
 import AddProblemForm from "@/components/admin/AddProblemForm";
+import MockOADesigner from "@/components/admin/MockOADesigner";
+import CompanyOAPatterns from "@/components/admin/CompanyOAPatterns";
+import UserOAAttempts from "@/components/admin/UserOAAttempts";
+import OAAnalytics from "@/components/admin/OAAnalytics";
+import CreateContestForm from "@/components/admin/CreateContestForm";
+import ManageContests from "@/components/admin/ManageContests";
+import AdminInterviewPanel from "@/components/admin/AdminInterviewPanel";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -51,6 +66,29 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     ResponsiveContainer,
     AreaChart,
@@ -87,8 +125,128 @@ const AdminDashboard = () => {
     const [adminsData, setAdminsData] = useState<any[]>([]);
     const [isLoadingAdmins, setIsLoadingAdmins] = useState(false);
     const [editingProblem, setEditingProblem] = useState<any>(null);
+    const [isCleaningUp, setIsCleaningUp] = useState(false);
+    const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
+    const [systemHealthData, setSystemHealthData] = useState<any>(null);
+    const [isLoadingHealth, setIsLoadingHealth] = useState(false);
+    const [isDiagnosing, setIsDiagnosing] = useState(false);
+    const [diagnosisResults, setDiagnosisResults] = useState<any[]>([]);
+    const [companiesData, setCompaniesData] = useState<any[]>([]);
+    const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
+    const [addCompanyForm, setAddCompanyForm] = useState({
+        name: "",
+        companyId: "",
+        logo: "",
+        website: "",
+        color: "#2563eb",
+        oaDifficulty: "Medium",
+        avgQuestions: "2-3",
+        focusAreas: [] as string[],
+        pattern: [{ topic: "", percentage: 0 }],
+        oaSimulation: { duration: "60 mins", coding: 2, debug: 0, mcq: 0 },
+        roadmap: [{ stage: "OA", description: "" }]
+    });
+    const [isAddingCompany, setIsAddingCompany] = useState(false);
+    const [mockOAsData, setMockOAsData] = useState<any[]>([]);
+    const [isLoadingMockOAs, setIsLoadingMockOAs] = useState(false);
 
     const { user } = useAuth();
+
+    const fetchSystemHealth = async () => {
+        if (!user) return;
+        setIsLoadingHealth(true);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/admin/system/health', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                setSystemHealthData(result.data);
+            }
+        } catch (error) {
+            console.error("Health fetch error:", error);
+        } finally {
+            setIsLoadingHealth(false);
+        }
+    };
+
+    const runDiagnostics = async () => {
+        if (!user) return;
+        setIsDiagnosing(true);
+        const toastId = toast.loading("Running deep system diagnostics...");
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/admin/system/diagnostics', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+            const result = await response.json();
+            if (result.success) {
+                setDiagnosisResults(result.results);
+                toast.success("Diagnostics completed successfully", { id: toastId });
+            } else {
+                toast.error("Diagnostics failed", { id: toastId });
+            }
+        } catch (error: any) {
+            console.error("Diagnostics error:", error);
+            toast.error(error.message || "Connection error during diagnostics", { id: toastId });
+        } finally {
+            setIsDiagnosing(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeItem === "Overview") {
+            fetchSystemHealth();
+            const interval = setInterval(fetchSystemHealth, 30000); // refresh every 30s
+            return () => clearInterval(interval);
+        }
+    }, [activeItem]);
+
+    const handleRunJudgeCleanup = async () => {
+        if (!user) return;
+        setIsCleaningUp(true);
+        const toastId = toast.loading("Running Judge Cleanup...");
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/admin/judge/cleanup', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+            const result = await response.json();
+
+            if (result.success) {
+                toast.success("Judge Cleanup Successful!", {
+                    id: toastId,
+                    description: `Cleared temp files and removed ${result.summary.staleSubmissionsRemoved} stale submissions.`
+                });
+                // Optionally refresh stats
+                fetchStats();
+            } else {
+                toast.error(result.error || "Cleanup failed", { id: toastId });
+            }
+        } catch (error: any) {
+            console.error("Cleanup error:", error);
+            toast.error(error.message || "An error occurred during cleanup", { id: toastId });
+        } finally {
+            setIsCleaningUp(false);
+        }
+    };
 
     const fetchStats = async () => {
         if (!user) return;
@@ -108,6 +266,27 @@ const AdminDashboard = () => {
             console.error('Failed to fetch admin stats:', error);
         } finally {
             // Stats loading done
+        }
+    };
+
+    const fetchCompanies = async () => {
+        if (!user) return;
+        setIsLoadingCompanies(true);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/companies', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    setCompaniesData(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch companies:', error);
+        } finally {
+            setIsLoadingCompanies(false);
         }
     };
 
@@ -271,6 +450,27 @@ const AdminDashboard = () => {
         }
     };
 
+    const fetchMockOAs = async () => {
+        if (!user) return;
+        setIsLoadingMockOAs(true);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/mockoa/admin/list', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    setMockOAsData(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch mock OAs:', error);
+        } finally {
+            setIsLoadingMockOAs(false);
+        }
+    };
+
     const fetchAdmins = async () => {
         if (!user) return;
         setIsLoadingAdmins(true);
@@ -289,6 +489,59 @@ const AdminDashboard = () => {
             console.error('Failed to fetch admin list:', error);
         } finally {
             setIsLoadingAdmins(false);
+        }
+    };
+
+    const handleAddCompany = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) return;
+        setIsAddingCompany(true);
+        const toastId = toast.loading("Adding company...");
+
+        try {
+            // Filter out empty patterns and roadmap items to prevent validation errors
+            const cleanedForm = {
+                ...addCompanyForm,
+                pattern: addCompanyForm.pattern.filter(p => p.topic.trim() !== ""),
+                roadmap: addCompanyForm.roadmap.filter(r => r.stage.trim() !== "" && r.description.trim() !== "")
+            };
+
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/admin/companies', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(cleanedForm)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                toast.success("Company added successfully!", { id: toastId });
+                setAddCompanyForm({
+                    name: "",
+                    companyId: "",
+                    logo: "",
+                    website: "",
+                    color: "#2563eb",
+                    oaDifficulty: "Medium",
+                    avgQuestions: "2-3",
+                    focusAreas: [],
+                    pattern: [{ topic: "", percentage: 0 }],
+                    oaSimulation: { duration: "60 mins", coding: 2, debug: 0, mcq: 0 },
+                    roadmap: [{ stage: "OA", description: "" }]
+                });
+                setActiveItem("All Companies");
+                fetchCompanies();
+            } else {
+                toast.error(result.error || "Failed to add company", { id: toastId });
+            }
+        } catch (error) {
+            console.error("Add company error:", error);
+            toast.error("An error occurred during addition", { id: toastId });
+        } finally {
+            setIsAddingCompany(false);
         }
     };
 
@@ -333,6 +586,10 @@ const AdminDashboard = () => {
             fetchProblems();
         } else if (activeItem === "Admins / Moderators") {
             fetchAdmins();
+        } else if (activeItem === "All Companies" || activeItem === "Create Mock OA") {
+            fetchCompanies();
+        } else if (activeItem === "OA Templates") {
+            fetchMockOAs();
         }
     }, [activeItem, user]);
 
@@ -361,7 +618,7 @@ const AdminDashboard = () => {
         {
             title: "Companies",
             icon: Building2,
-            subItems: ["All Companies", "Add Company", "Company OA Patterns", "Company Problem Mapping"]
+            subItems: ["All Companies", "Add Company", "Company OA Patterns"]
         },
         {
             title: "Contests",
@@ -749,14 +1006,91 @@ const AdminDashboard = () => {
 
                                     {/* System Quick Actions */}
                                     <div className="space-y-4">
-                                        <Button className="w-full h-12 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-xs gap-2">
+                                        <Button
+                                            onClick={() => setActiveItem("Add New Problem")}
+                                            className="w-full h-12 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-xs gap-2"
+                                        >
                                             <PlusCircle className="w-4 h-4" />
                                             Compose Problem
                                         </Button>
-                                        <Button variant="outline" className="w-full h-12 border-border/40 hover:bg-white/5 font-bold uppercase tracking-widest text-xs gap-2">
-                                            <Database className="w-4 h-4" />
-                                            Run Judge Cleanup
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <AlertDialog open={isCleanupDialogOpen} onOpenChange={setIsCleanupDialogOpen}>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="flex-1 h-12 border-border/40 hover:bg-white/5 font-bold uppercase tracking-widest text-xs gap-2"
+                                                        disabled={isCleaningUp}
+                                                    >
+                                                        {isCleaningUp ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                                                        Run Judge Cleanup
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent
+                                                    className="bg-[#111111] border-border/40 text-white"
+                                                >
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle className="flex items-center gap-2">
+                                                            <AlertCircle className="w-5 h-5 text-amber-500" />
+                                                            ⚠️ Run Judge Cleanup?
+                                                        </AlertDialogTitle>
+                                                        <AlertDialogDescription className="text-muted-foreground">
+                                                            This will perform the following actions:
+                                                            <ul className="list-disc list-inside mt-2 space-y-1">
+                                                                <li>Clear temporary execution data & buffers</li>
+                                                                <li>Clean stuck or zombie judge jobs</li>
+                                                                <li>Optimize judge performance</li>
+                                                                <li>Remove internal system error logs</li>
+                                                            </ul>
+                                                            <p className="mt-4 font-semibold text-white/90">This action is safe but will briefly interrupt any currently running judge jobs.</p>
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel className="bg-white/5 border-border/40 hover:bg-white/10 text-white">Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={handleRunJudgeCleanup}
+                                                            className="bg-primary hover:bg-primary/90 text-black font-bold"
+                                                        >
+                                                            Run Cleanup
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-12 w-12 rounded-lg border border-border/40 hover:bg-primary/10 hover:text-primary shrink-0">
+                                                        <Info className="w-5 h-5" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-80 bg-[#111111] border-border/40 text-white shadow-2xl z-50">
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 border-b border-border/10 pb-2">
+                                                            <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                                                                <Database className="w-4 h-4" />
+                                                            </div>
+                                                            <span className="font-bold text-sm tracking-tight text-primary">Judge Maintenance Tool</span>
+                                                        </div>
+                                                        <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+                                                            <p>Maintain the system's "Judge Health" to ensure reliable user submissions.</p>
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                                                                    <p><span className="text-white font-medium text-[10px] uppercase">Temp Cleanup:</span> Deletes Docker leftovers and /tmp buffers to save disk space.</p>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 shrink-0" />
+                                                                    <p><span className="text-white font-medium text-[10px] uppercase">Stuck Jobs:</span> Forces termination of submissions in 'Running' state for too long.</p>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 shrink-0" />
+                                                                    <p><span className="text-white font-medium text-[10px] uppercase">Error Logs:</span> Clears internal judge crash entries to keep stats clean.</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -853,32 +1187,153 @@ const AdminDashboard = () => {
                                             </CardContent>
                                         </Card>
 
-                                        <Card className="bg-primary/5 border-primary/20 overflow-hidden relative group">
-                                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                                <Database className="w-24 h-24" />
+                                        <Card className="bg-[#050505] border-primary/20 overflow-hidden relative group shadow-2xl">
+                                            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                                                <Activity className="w-48 h-48 -mr-12 -mt-12" />
                                             </div>
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-base text-primary/80">System Analytics</CardTitle>
+                                            <CardHeader className="pb-4 border-b border-white/[0.05]">
+                                                <div className="flex items-center justify-between">
+                                                    <CardTitle className="text-sm font-bold tracking-tighter text-primary uppercase">Platform Health Monitor</CardTitle>
+                                                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[9px] h-5 animate-pulse">Live</Badge>
+                                                </div>
                                             </CardHeader>
-                                            <CardContent className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                                        <span>Server Load</span>
-                                                        <span className="text-primary tracking-normal">98% UP</span>
+                                            <CardContent className="pt-6 space-y-6">
+                                                {/* 1. Server Load (CPU, Mem, Disk) */}
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <Server className="w-3.5 h-3.5 text-primary/60" />
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Server Load</span>
+                                                        </div>
+                                                        <span className="text-[10px] font-mono text-primary font-bold">{systemHealthData?.server?.cpu || '0'}% CPU</span>
                                                     </div>
-                                                    <div className="h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
-                                                        <div className="h-full bg-primary w-[98%] transition-all duration-1000 group-hover:w-[94%]" />
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div className="space-y-1">
+                                                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${systemHealthData?.server?.cpu || 0}%` }} />
+                                                            </div>
+                                                            <p className="text-[8px] text-muted-foreground uppercase font-bold text-center">CPU</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${systemHealthData?.server?.memory || 0}%` }} />
+                                                            </div>
+                                                            <p className="text-[8px] text-muted-foreground uppercase font-bold text-center">MEM</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-amber-500 transition-all duration-1000" style={{ width: `${systemHealthData?.server?.disk || 48}%` }} />
+                                                            </div>
+                                                            <p className="text-[8px] text-muted-foreground uppercase font-bold text-center">DISK</p>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase tracking-widest border-primary/30 hover:bg-primary/10 transition-all">
-                                                    System Diagnostics
-                                                </Button>
+
+                                                {/* 2 & 3. Judge & Pipeline */}
+                                                <div className="grid grid-cols-2 gap-4 py-2 border-y border-white/[0.05]">
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Zap className="w-3 h-3 text-amber-500" />
+                                                            <span className="text-[9px] font-bold text-muted-foreground/80 uppercase">Judge Health</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-bold text-white">{systemHealthData?.judge?.activeWorkers || '6'}/6 Active</span>
+                                                            <span className="text-[8px] text-muted-foreground">RT: {systemHealthData?.judge?.avgRuntime || '240ms'}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Layers className="w-3 h-3 text-blue-500" />
+                                                            <span className="text-[9px] font-bold text-muted-foreground/80 uppercase">Pipeline</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-bold text-white">{systemHealthData?.pipeline?.running || '0'} Running</span>
+                                                            <span className="text-[8px] text-muted-foreground">Queued: {systemHealthData?.pipeline?.queued || '0'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* 4 & 5. Uptime & DB */}
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-1.5 rounded-lg bg-green-500/10 text-green-500">
+                                                            <Clock className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[8px] font-bold text-muted-foreground uppercase">Uptime</span>
+                                                            <span className="text-[10px] font-mono font-bold text-white">{systemHealthData?.uptime?.system || '99.98%'}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                                            <Database className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[8px] font-bold text-muted-foreground uppercase">DB Latency</span>
+                                                            <span className="text-[10px] font-mono font-bold text-white">{systemHealthData?.database?.latency || '18ms'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button
+                                                            onClick={runDiagnostics}
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full text-[10px] font-bold uppercase tracking-widest border-primary/30 bg-primary/5 hover:bg-primary/20 transition-all gap-2 h-9"
+                                                            disabled={isDiagnosing}
+                                                        >
+                                                            {isDiagnosing ? <RefreshCcw className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
+                                                            Run Full Diagnostics
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent className="bg-[#0a0a0a] border-border/40 text-white max-w-md">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle className="flex items-center gap-2">
+                                                                <ShieldCheck className="w-5 h-5 text-primary" />
+                                                                System Diagnostics Report
+                                                            </AlertDialogTitle>
+                                                            <AlertDialogDescription className="text-muted-foreground">
+                                                                Deep check completed at {new Date().toLocaleTimeString()}.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <div className="space-y-3 py-4">
+                                                            {diagnosisResults.map((res, i) => (
+                                                                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                                                                    <div className="flex items-center gap-3">
+                                                                        {res.status === 'PASS' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-xs font-bold">{res.check}</span>
+                                                                            <span className="text-[10px] text-muted-foreground">{res.details}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <Badge variant="outline" className={cn(
+                                                                        "text-[9px] h-5",
+                                                                        res.status === 'PASS' ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"
+                                                                    )}>{res.status}</Badge>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogAction className="bg-primary text-black font-bold text-xs uppercase cursor-pointer">Done</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                             </CardContent>
                                         </Card>
                                     </div>
                                 </div>
                             </div>
                         )}
+
+                        {(activeItem === "Create Interview Rooms" ||
+                            activeItem === "Interview Schedules" ||
+                            activeItem === "Interviewers Management" ||
+                            activeItem === "Interview Feedback" ||
+                            activeItem === "Interview Leaderboard") && (
+                                <AdminInterviewPanel activeView={activeItem} />
+                            )}
 
                         {/* Analytics Tab Content */}
                         {activeItem === "Analytics" && (
@@ -1386,6 +1841,633 @@ const AdminDashboard = () => {
                             </div>
                         )}
 
+                        {/* All Companies Section */}
+                        {activeItem === "All Companies" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-3xl font-bold tracking-tight text-primary">Platform Companies</h2>
+                                        <p className="text-muted-foreground mt-1">Manage partner companies and track target-specific problems</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button variant="outline" size="sm" onClick={() => setActiveItem("Add Company")} className="gap-2 border-primary/30 text-primary hover:bg-primary/10 transition-all">
+                                            <PlusCircle className="w-4 h-4" />
+                                            Add Company
+                                        </Button>
+                                        <Button onClick={fetchCompanies} variant="outline" size="sm" className="gap-2">
+                                            <RefreshCcw className={cn("w-4 h-4", isLoadingCompanies && "animate-spin")} />
+                                            Refresh
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Card className="bg-[#111111] border-primary/20 overflow-hidden shadow-2xl">
+                                    <CardContent className="p-0">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left text-sm">
+                                                <thead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-primary/[0.02] border-b border-border/10">
+                                                    <tr>
+                                                        <th className="px-6 py-4">Company Name</th>
+                                                        <th className="px-6 py-4">OA Difficulty</th>
+                                                        <th className="px-6 py-4">Focus Areas</th>
+                                                        <th className="px-6 py-4 text-right">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/[0.05]">
+                                                    {isLoadingCompanies ? (
+                                                        <tr>
+                                                            <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                                                                <div className="flex flex-col items-center gap-2">
+                                                                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                                                    <span>Fetching company data...</span>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ) : companiesData.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                                                                No companies found. Start by adding one.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        companiesData.map((company) => (
+                                                            <tr key={company._id} className="hover:bg-white/[0.01] transition-colors group">
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
+                                                                            {company.logo ? (
+                                                                                <img src={company.logo} alt={company.name} className="w-full h-full object-contain p-1" />
+                                                                            ) : (
+                                                                                <Building2 className="w-5 h-5" />
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-bold text-white group-hover:text-primary transition-colors">{company.name}</span>
+                                                                            <span className="text-xs text-muted-foreground">{company.companyId}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <Badge variant="outline" className={cn(
+                                                                        "text-[10px] uppercase font-bold border-0",
+                                                                        company.oaDifficulty?.toLowerCase() === 'hard' ? "bg-red-500/10 text-red-500" :
+                                                                            company.oaDifficulty?.toLowerCase() === 'medium' ? "bg-amber-500/10 text-amber-500" : "bg-green-500/10 text-green-500"
+                                                                    )}>
+                                                                        {company.oaDifficulty || 'Medium'}
+                                                                    </Badge>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {company.focusAreas?.slice(0, 2).map((area: string, i: number) => (
+                                                                            <Badge key={i} variant="outline" className="text-[9px] bg-white/5 border-white/10 text-muted-foreground">
+                                                                                {area}
+                                                                            </Badge>
+                                                                        ))}
+                                                                        {company.focusAreas?.length > 2 && (
+                                                                            <span className="text-[9px] text-muted-foreground">+{company.focusAreas.length - 2}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 hover:text-primary">
+                                                                            <Edit className="w-4 h-4" />
+                                                                        </Button>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-500/10 hover:text-red-500">
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* Add Company Section */}
+                        {activeItem === "Add Company" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                                            <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                                                <PlusCircle className="w-6 h-6 text-primary" />
+                                            </div>
+                                            Add New Company
+                                        </h2>
+                                        <p className="text-muted-foreground mt-1 text-sm">Register a new partner company to track Online Assessments</p>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => setActiveItem("All Companies")} className="gap-2">
+                                        <ArrowUpRight className="w-4 h-4 rotate-[225deg]" />
+                                        Back to List
+                                    </Button>
+                                </div>
+
+                                <Card className="bg-[#111111] border-border/40 overflow-hidden shadow-2xl w-full">
+                                    <CardHeader className="bg-white/[0.01] border-b border-border/10">
+                                        <CardTitle className="text-lg">Company Details</CardTitle>
+                                        <CardDescription>Enter the primary information for the new company entry</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-8">
+                                        <form onSubmit={handleAddCompany} className="space-y-6">
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Name</label>
+                                                    <Input
+                                                        placeholder="e.g. Amazon"
+                                                        value={addCompanyForm.name}
+                                                        onChange={(e) => {
+                                                            const name = e.target.value;
+                                                            setAddCompanyForm(prev => ({
+                                                                ...prev,
+                                                                name,
+                                                                companyId: name.toLowerCase().replace(/\s+/g, '-')
+                                                            }));
+                                                        }}
+                                                        className="h-12 bg-black/40 border-border/40 focus:border-primary/50 transition-all font-medium"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Unique ID / Slug</label>
+                                                    <Input
+                                                        placeholder="e.g. amazon"
+                                                        value={addCompanyForm.companyId}
+                                                        onChange={(e) => setAddCompanyForm(prev => ({ ...prev, companyId: e.target.value }))}
+                                                        className="h-12 bg-black/40 border-border/40 focus:border-primary/50 transition-all font-mono text-sm"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Logo URL</label>
+                                                    <div className="flex gap-3">
+                                                        <Input
+                                                            placeholder="https://example.com/logo.png"
+                                                            value={addCompanyForm.logo}
+                                                            onChange={(e) => setAddCompanyForm(prev => ({ ...prev, logo: e.target.value }))}
+                                                            className="h-12 flex-1 bg-black/40 border-border/40 focus:border-primary/50 transition-all"
+                                                            required
+                                                        />
+                                                        <div className="w-12 h-12 rounded-lg bg-white/5 border border-border/40 flex items-center justify-center overflow-hidden">
+                                                            {addCompanyForm.logo ? (
+                                                                <img src={addCompanyForm.logo} alt="Preview" className="w-full h-full object-contain p-1" />
+                                                            ) : (
+                                                                <Building2 className="w-5 h-5 text-muted-foreground" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Website (Optional)</label>
+                                                    <Input
+                                                        placeholder="https://careers.company.com"
+                                                        value={addCompanyForm.website}
+                                                        onChange={(e) => setAddCompanyForm(prev => ({ ...prev, website: e.target.value }))}
+                                                        className="h-12 bg-black/40 border-border/40 focus:border-primary/50 transition-all"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">OA Difficulty</label>
+                                                <Select
+                                                    value={addCompanyForm.oaDifficulty}
+                                                    onValueChange={(value) => setAddCompanyForm(prev => ({ ...prev, oaDifficulty: value }))}
+                                                >
+                                                    <SelectTrigger className="h-12 bg-black/40 border-border/40 focus:border-primary/50 transition-all text-sm font-medium">
+                                                        <SelectValue placeholder="Select Difficulty" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-[#1a1a1a] border-border/40 text-foreground">
+                                                        <SelectItem value="Easy" className="focus:bg-green-500/20 focus:text-green-500 cursor-pointer">Easy</SelectItem>
+                                                        <SelectItem value="Medium" className="focus:bg-amber-500/20 focus:text-amber-500 cursor-pointer">Medium</SelectItem>
+                                                        <SelectItem value="Hard" className="focus:bg-red-500/20 focus:text-red-500 cursor-pointer">Hard</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Focus Areas (Comma separated)</label>
+                                                <Input
+                                                    placeholder="e.g. Arrays, Trees, Dynamic Programming"
+                                                    value={addCompanyForm.focusAreas.join(", ")}
+                                                    onChange={(e) => setAddCompanyForm(prev => ({
+                                                        ...prev,
+                                                        focusAreas: e.target.value.split(',').map(s => s.trim())
+                                                    }))}
+                                                    className="h-12 bg-black/40 border-border/40 focus:border-primary/50 transition-all"
+                                                />
+                                            </div>
+
+                                            {/* OA Simulation Details */}
+                                            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/5 space-y-5 relative overflow-hidden group hover:border-primary/20 transition-all">
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-primary/20 group-hover:bg-primary transition-colors" />
+                                                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                                    <MonitorSpeaker className="w-4 h-4 text-primary" />
+                                                    OA Simulation Details
+                                                </h3>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duration</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                value={addCompanyForm.oaSimulation.duration}
+                                                                onChange={(e) => setAddCompanyForm(prev => ({
+                                                                    ...prev,
+                                                                    oaSimulation: { ...prev.oaSimulation, duration: e.target.value }
+                                                                }))}
+                                                                className="bg-black/40 pl-8 focus:border-primary/50 transition-all text-center"
+                                                                placeholder="e.g 60 mins"
+                                                            />
+                                                            <Clock className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Coding Qs</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                type="number"
+                                                                value={addCompanyForm.oaSimulation.coding}
+                                                                onChange={(e) => setAddCompanyForm(prev => ({
+                                                                    ...prev,
+                                                                    oaSimulation: { ...prev.oaSimulation, coding: parseInt(e.target.value) || 0 }
+                                                                }))}
+                                                                className="bg-black/40 pl-8 focus:border-primary/50 transition-all"
+                                                            />
+                                                            <Code2 className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Debug Qs</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                type="number"
+                                                                value={addCompanyForm.oaSimulation.debug}
+                                                                onChange={(e) => setAddCompanyForm(prev => ({
+                                                                    ...prev,
+                                                                    oaSimulation: { ...prev.oaSimulation, debug: parseInt(e.target.value) || 0 }
+                                                                }))}
+                                                                className="bg-black/40 pl-8 focus:border-primary/50 transition-all"
+                                                            />
+                                                            <Cpu className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">MCQ Qs</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                type="number"
+                                                                value={addCompanyForm.oaSimulation.mcq}
+                                                                onChange={(e) => setAddCompanyForm(prev => ({
+                                                                    ...prev,
+                                                                    oaSimulation: { ...prev.oaSimulation, mcq: parseInt(e.target.value) || 0 }
+                                                                }))}
+                                                                className="bg-black/40 pl-8 focus:border-primary/50 transition-all"
+                                                            />
+                                                            <ClipboardList className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Pattern Breakdown */}
+                                            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/5 space-y-5 relative overflow-hidden group hover:border-amber-500/20 transition-all">
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/20 group-hover:bg-amber-500 transition-colors" />
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                                        <Layers className="w-4 h-4 text-amber-500" />
+                                                        Pattern Breakdown
+                                                    </h3>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setAddCompanyForm(prev => ({
+                                                            ...prev,
+                                                            pattern: [...prev.pattern, { topic: "", percentage: 0 }]
+                                                        }))}
+                                                        className="h-8 text-[10px] font-bold uppercase tracking-wider text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                                                    >
+                                                        + Add Topic
+                                                    </Button>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {addCompanyForm.pattern.length === 0 && (
+                                                        <div className="text-center py-6 text-muted-foreground text-xs italic border border-dashed border-white/10 rounded-lg">
+                                                            No patterns added yet. Click "+ Add Topic" to start.
+                                                        </div>
+                                                    )}
+                                                    {addCompanyForm.pattern.map((item, idx) => (
+                                                        <div key={idx} className="flex gap-3 items-center p-2 rounded-lg bg-black/20 border border-white/5 hover:border-amber-500/20 transition-all">
+                                                            <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center text-[10px] font-bold text-amber-500 border border-amber-500/20">
+                                                                {idx + 1}
+                                                            </div>
+                                                            <Input
+                                                                placeholder="Topic Name (e.g. Graph)"
+                                                                value={item.topic}
+                                                                onChange={(e) => {
+                                                                    const newPattern = [...addCompanyForm.pattern];
+                                                                    newPattern[idx].topic = e.target.value;
+                                                                    setAddCompanyForm(prev => ({ ...prev, pattern: newPattern }));
+                                                                }}
+                                                                className="bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 h-8 text-sm"
+                                                            />
+                                                            <div className="flex items-center gap-2 bg-black/40 rounded-md px-2 border border-white/5">
+                                                                <span className="text-xs text-muted-foreground font-bold">%</span>
+                                                                <Input
+                                                                    type="number"
+                                                                    placeholder="0"
+                                                                    value={item.percentage}
+                                                                    onChange={(e) => {
+                                                                        const newPattern = [...addCompanyForm.pattern];
+                                                                        newPattern[idx].percentage = parseInt(e.target.value) || 0;
+                                                                        setAddCompanyForm(prev => ({ ...prev, pattern: newPattern }));
+                                                                    }}
+                                                                    className="bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 w-12 h-8 text-right text-sm"
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => {
+                                                                    const newPattern = addCompanyForm.pattern.filter((_, i) => i !== idx);
+                                                                    setAddCompanyForm(prev => ({ ...prev, pattern: newPattern }));
+                                                                }}
+                                                                className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                                                            >
+                                                                <XCircle className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Interview Roadmap */}
+                                            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/5 space-y-5 relative overflow-hidden group hover:border-blue-500/20 transition-all">
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/20 group-hover:bg-blue-500 transition-colors" />
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                                        <Map className="w-4 h-4 text-blue-500" />
+                                                        Interview Roadmap
+                                                    </h3>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setAddCompanyForm(prev => ({
+                                                            ...prev,
+                                                            roadmap: [...prev.roadmap, { stage: "", description: "" }]
+                                                        }))}
+                                                        className="h-8 text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
+                                                    >
+                                                        + Add Stage
+                                                    </Button>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {addCompanyForm.roadmap.length === 0 && (
+                                                        <div className="text-center py-6 text-muted-foreground text-xs italic border border-dashed border-white/10 rounded-lg">
+                                                            No interview stages defined. Click "+ Add Stage".
+                                                        </div>
+                                                    )}
+                                                    {addCompanyForm.roadmap.map((item, idx) => (
+                                                        <div key={idx} className="flex gap-3 items-start p-3 rounded-lg bg-black/20 border border-white/5 hover:border-blue-500/20 transition-all group/item">
+                                                            <div className="w-6 h-6 mt-1.5 rounded-full bg-blue-500/10 flex items-center justify-center text-[10px] font-bold text-blue-500 border border-blue-500/20">
+                                                                {idx + 1}
+                                                            </div>
+                                                            <div className="flex-1 space-y-2">
+                                                                <Input
+                                                                    placeholder="Stage Name (e.g. Online Assessment)"
+                                                                    value={item.stage}
+                                                                    onChange={(e) => {
+                                                                        const newRoadmap = [...addCompanyForm.roadmap];
+                                                                        newRoadmap[idx].stage = e.target.value;
+                                                                        setAddCompanyForm(prev => ({ ...prev, roadmap: newRoadmap }));
+                                                                    }}
+                                                                    className="bg-black/40 border-border/40 focus:border-blue-500/50 h-9 text-sm font-medium"
+                                                                />
+                                                                <textarea
+                                                                    placeholder="Description of the interview stage..."
+                                                                    value={item.description}
+                                                                    onChange={(e) => {
+                                                                        const newRoadmap = [...addCompanyForm.roadmap];
+                                                                        newRoadmap[idx].description = e.target.value;
+                                                                        setAddCompanyForm(prev => ({ ...prev, roadmap: newRoadmap }));
+                                                                    }}
+                                                                    className="w-full min-h-[60px] bg-black/40 border-border/40 focus:border-blue-500/50 rounded-md p-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => {
+                                                                    const newRoadmap = addCompanyForm.roadmap.filter((_, i) => i !== idx);
+                                                                    setAddCompanyForm(prev => ({ ...prev, roadmap: newRoadmap }));
+                                                                }}
+                                                                className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 mt-1"
+                                                            >
+                                                                <XCircle className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <Button
+                                                type="submit"
+                                                disabled={isAddingCompany}
+                                                className="w-full h-12 bg-primary hover:bg-primary/90 text-black font-bold uppercase tracking-widest"
+                                            >
+                                                {isAddingCompany ? <RefreshCcw className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle className="w-5 h-5 mr-2" />}
+                                                Save Company to Database
+                                            </Button>
+                                        </form>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {activeItem === "Company OA Patterns" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <CompanyOAPatterns />
+                            </div>
+                        )}
+
+                        {activeItem === "Create Mock OA" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <div>
+                                    <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                                        <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                                            <ClipboardList className="w-6 h-6 text-primary" />
+                                        </div>
+                                        Mock Assessment Designer
+                                    </h2>
+                                    <p className="text-muted-foreground mt-1 text-sm">Design and configure company-specific online assessments</p>
+                                </div>
+                                <MockOADesigner
+                                    companies={companiesData}
+                                    onComplete={() => {
+                                        setActiveItem("OA Templates");
+                                        fetchMockOAs();
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {activeItem === "User Attempts" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <UserOAAttempts />
+                            </div>
+                        )}
+
+                        {activeItem === "OA Templates" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                                            <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                                                <Layers className="w-6 h-6 text-primary" />
+                                            </div>
+                                            Assessment Templates
+                                        </h2>
+                                        <p className="text-muted-foreground mt-1 text-sm">Library of configured company online assessments</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setActiveItem("Create Mock OA")}
+                                            className="gap-2 border-primary/50 text-primary hover:bg-primary/10 transition-all font-bold uppercase tracking-widest text-[10px]"
+                                        >
+                                            <PlusCircle className="w-4 h-4" />
+                                            Create New Template
+                                        </Button>
+                                        <Button
+                                            onClick={fetchMockOAs}
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-2 border-white/10 hover:bg-white/5 font-bold uppercase tracking-widest text-[10px]"
+                                        >
+                                            <RefreshCcw className={cn("w-4 h-4", isLoadingMockOAs && "animate-spin")} />
+                                            Refresh Templates
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {isLoadingMockOAs ? (
+                                        [1, 2, 3].map(i => (
+                                            <Card key={i} className="bg-[#111111] border-border/40 animate-pulse">
+                                                <CardContent className="p-6 h-48 flex items-center justify-center">
+                                                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                                </CardContent>
+                                            </Card>
+                                        ))
+                                    ) : mockOAsData.length === 0 ? (
+                                        <div className="col-span-full py-20 text-center text-muted-foreground bg-[#111111] rounded-3xl border-2 border-dashed border-border/20">
+                                            <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                            <p className="text-lg font-medium">No OA templates found.</p>
+                                            <p className="text-sm mt-1">Start by creating a new template from the designer.</p>
+                                            <Button
+                                                onClick={() => setActiveItem("Create Mock OA")}
+                                                variant="outline"
+                                                className="mt-6 border-primary/30 text-primary hover:bg-primary/10"
+                                            >
+                                                Open OA Designer
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        mockOAsData.map((oa) => (
+                                            <Card key={oa._id} className="bg-[#111111] border-border/40 hover:border-primary/40 transition-all group overflow-hidden relative">
+                                                <div className="absolute top-0 right-0 p-4">
+                                                    <Badge variant="outline" className={cn(
+                                                        "text-[10px] uppercase font-black tracking-tighter border-0",
+                                                        oa.status === 'ACTIVE' ? "bg-green-500/10 text-green-400" : "bg-amber-500/10 text-amber-400"
+                                                    )}>
+                                                        {oa.status}
+                                                    </Badge>
+                                                </div>
+                                                <CardHeader className="pb-3 border-b border-white/[0.03] bg-white/[0.01]">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold overflow-hidden">
+                                                                {oa.companyLogo ? (
+                                                                    <img src={oa.companyLogo} alt={oa.company} className="w-4 h-4 object-contain" />
+                                                                ) : (
+                                                                    oa.company.charAt(0)
+                                                                )}
+                                                            </div>
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">{oa.company}</span>
+                                                        </div>
+                                                        <CardTitle className="text-xl font-black text-white group-hover:text-primary transition-colors truncate pr-16">{oa.title}</CardTitle>
+                                                        <CardDescription className="text-muted-foreground/60 text-xs font-medium uppercase tracking-wider">{oa.role}</CardDescription>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="pt-5 space-y-4">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-widest">Questions</span>
+                                                            <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                                                                <Code2 className="w-3.5 h-3.5 text-primary" />
+                                                                {oa.questions?.length || 0} Problems
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-widest">Duration</span>
+                                                            <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                                                                <Clock className="w-3.5 h-3.5 text-primary" />
+                                                                {oa.duration} Mins
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {oa.questions?.slice(0, 3).map((q: any, i: number) => (
+                                                            <Badge key={i} variant="secondary" className="bg-white/5 text-[9px] font-bold border-0 text-muted-foreground/80">
+                                                                {q.title?.split(' ').slice(0, 2).join(' ')}...
+                                                            </Badge>
+                                                        ))}
+                                                        {oa.questions?.length > 3 && (
+                                                            <span className="text-[9px] text-muted-foreground font-bold ml-1">+{oa.questions.length - 3} more</span>
+                                                        )}
+                                                    </div>
+                                                </CardContent>
+                                                <div className="p-3 bg-black/40 border-t border-white/[0.03] flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-white/5 hover:text-primary">
+                                                            <Edit className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-red-500/10 hover:text-red-500">
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 h-8"
+                                                        onClick={() => {
+                                                            alert(`Previewing OA: ${oa.title}`);
+                                                        }}
+                                                    >
+                                                        Test Template
+                                                        <ArrowUpRight className="w-3 h-3 ml-1.5" />
+                                                    </Button>
+                                                </div>
+                                            </Card>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {activeItem === "Problem Tags" && (
                             <div className="space-y-8 animate-in fade-in duration-500">
                                 <div className="flex items-center justify-between">
@@ -1799,20 +2881,21 @@ const AdminDashboard = () => {
                             </div>
                         )}
 
-                        {activeItem !== "Overview" && activeItem !== "Analytics" && activeItem !== "All Users" && activeItem !== "Blocked Users" && activeItem !== "All Problems" && activeItem !== "Problem Tags" && activeItem !== "Admins / Moderators" && activeItem !== "Add New Problem" && activeItem !== "Editorials" && activeItem !== "Edit Problem" && (
-                            <div className="h-[60vh] flex flex-col items-center justify-center text-center space-y-4 rounded-3xl border-2 border-dashed border-border/20 bg-black/20">
-                                <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10">
-                                    <Database className="w-12 h-12 text-primary/40" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold">{activeItem} Dashboard</h2>
-                                    <p className="text-muted-foreground max-w-md mx-auto mt-2">
-                                        This module is currently being integrated with the backend API. Check back soon for management controls.
-                                    </p>
-                                </div>
-                                <Button onClick={() => setActiveItem("Overview")} variant="secondary" size="sm">
-                                    Return to Overview
-                                </Button>
+                        {activeItem === "OA Analytics" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <OAAnalytics />
+                            </div>
+                        )}
+
+                        {activeItem === "Create Contest" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <CreateContestForm />
+                            </div>
+                        )}
+
+                        {activeItem === "All Contests" && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <ManageContests />
                             </div>
                         )}
                     </div>

@@ -1,12 +1,19 @@
 import { Button } from "@/components/ui/button";
-import { Code2, Menu, X, LogOut, User as UserIcon, Lock, Trophy, Layout, Building2, BrainCircuit, Users, BarChart3 } from "lucide-react";
+import { Code2, Menu, X, LogOut, User as UserIcon, Lock, Trophy, Layout, BrainCircuit, Users, BarChart3, Target, ChevronDown, Calendar, History, Flame } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetHeader } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import LoginForm from "../auth/LoginForm";
 import AdminLoginForm from "../auth/AdminLoginForm";
 import RegisterForm from "../auth/RegisterForm";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NavbarProps {
   isLoginOpen: boolean;
@@ -37,10 +44,20 @@ const Navbar = ({
 
   const navLinks = [
     { name: "Problems", href: "/problems", icon: Layout },
-    { name: "Contest", href: "/contest", icon: Trophy },
-    { name: "Companies", href: "#companies", icon: Building2 },
-    { name: "Mock OA", href: "#mock-oa", icon: BrainCircuit },
-    { name: "Interview", href: "#interview", icon: Users, isNew: true },
+    {
+      name: "Contest",
+      href: "/contest",
+      icon: Trophy,
+      subItems: [
+        { name: "Live Contests", href: "/contest?tab=ongoing", icon: Flame, description: "Competing in real-time" },
+        { name: "Upcoming", href: "/contest?tab=upcoming", icon: Calendar, description: "Register for future events" },
+        { name: "Past Events", href: "/contest?tab=ended", icon: History, description: "Virtual participation & results" },
+        { name: "Invite Only", href: "/contest?tab=private", icon: Lock, description: "Private & recursive events" },
+      ]
+    },
+    { name: "Companies", href: "/companies", icon: Target, tooltip: "Prepare company-specific questions, OA patterns & mock interviews" },
+    { name: "Mock OA", href: "/mock-oa", icon: BrainCircuit },
+    { name: "Interview", href: "/interview", icon: Users, isNew: true },
     { name: "Leaderboard", href: "/leaderboard", icon: BarChart3 },
   ];
 
@@ -52,6 +69,17 @@ const Navbar = ({
   const handleGetStartedClick = () => {
     setIsRegisterOpen(true);
     setIsOpen(false);
+  };
+
+  const handleNavClick = (e: React.MouseEvent, href: string) => {
+    if (!user) {
+      e.preventDefault();
+      setIsLoginOpen(true);
+      setIsOpen(false);
+    } else {
+      navigate(href);
+      setIsOpen(false);
+    }
   };
 
   return (
@@ -70,20 +98,58 @@ const Navbar = ({
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center gap-10">
               {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  className="text-muted-foreground hover:text-foreground transition-all duration-200 flex items-center gap-3 group/nav relative"
-                >
-                  <link.icon className="w-4 h-4 group-hover/nav:text-primary transition-colors" />
-                  <span className="text-sm font-medium">{link.name}</span>
-                  {link.isNew && (
-                    <span className="absolute -top-2 -right-4 px-1 py-0.5 rounded-[4px] bg-primary/20 text-primary text-[8px] font-bold uppercase tracking-tight border border-primary/20 animate-pulse">
-                      New
-                    </span>
+                <Tooltip key={link.name}>
+                  {link.subItems ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <div className="text-muted-foreground hover:text-foreground transition-all duration-200 flex items-center gap-2 group/nav relative cursor-pointer outline-none">
+                          <link.icon className="w-4 h-4 group-hover/nav:text-primary transition-colors" />
+                          <span className="text-sm font-medium">{link.name}</span>
+                          <ChevronDown className="w-3.5 h-3.5 transition-transform group-hover/nav:rotate-180 duration-200" />
+                          <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary group-hover/nav:w-full transition-all duration-300 rounded-full" />
+                        </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-64 bg-background/95 backdrop-blur-xl border-border/50 p-2 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200" align="start">
+                        {link.subItems.map((sub) => (
+                          <DropdownMenuItem
+                            key={sub.name}
+                            onClick={(e) => handleNavClick(e, sub.href)}
+                            className="flex items-center gap-4 p-3 cursor-pointer rounded-xl focus:bg-primary/5 group"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                              <sub.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-foreground">{sub.name}</span>
+                              <span className="text-[10px] text-muted-foreground leading-tight">{sub.description}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <TooltipTrigger asChild>
+                      <div
+                        onClick={(e) => handleNavClick(e, link.href)}
+                        className="text-muted-foreground hover:text-foreground transition-all duration-200 flex items-center gap-3 group/nav relative cursor-pointer"
+                      >
+                        <link.icon className="w-4 h-4 group-hover/nav:text-primary transition-colors" />
+                        <span className="text-sm font-medium">{link.name}</span>
+                        {link.isNew && (
+                          <span className="absolute -top-2 -right-4 px-1 py-0.5 rounded-[4px] bg-primary/20 text-primary text-[8px] font-bold uppercase tracking-tight border border-primary/20 animate-pulse">
+                            New
+                          </span>
+                        )}
+                        <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary group-hover/nav:w-full transition-all duration-300 rounded-full" />
+                      </div>
+                    </TooltipTrigger>
                   )}
-                  <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary group-hover/nav:w-full transition-all duration-300 rounded-full" />
-                </Link>
+                  {link.tooltip && (
+                    <TooltipContent side="bottom" className="bg-secondary/90 backdrop-blur-md border-primary/20 text-foreground">
+                      <p className="text-xs font-medium">{link.tooltip}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               ))}
             </div>
 
@@ -156,22 +222,36 @@ const Navbar = ({
             <div className="md:hidden py-4 border-t border-border/50 animate-fade-up">
               <div className="flex flex-col gap-4">
                 {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    to={link.href}
-                    className="flex items-center gap-3 py-2.5 px-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-all group"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                      <link.icon className="w-4 h-4" />
+                  <div key={link.name}>
+                    <div
+                      onClick={(e) => handleNavClick(e, link.href)}
+                      className="flex items-center gap-3 py-2.5 px-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-all group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        <link.icon className="w-4 h-4" />
+                      </div>
+                      <span className="flex-1 font-medium">{link.name}</span>
+                      {link.isNew && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[8px] font-bold uppercase">
+                          New
+                        </span>
+                      )}
                     </div>
-                    <span className="flex-1 font-medium">{link.name}</span>
-                    {link.isNew && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[8px] font-bold uppercase">
-                        New
-                      </span>
+                    {link.subItems && (
+                      <div className="ml-10 mt-1 mb-2 space-y-1">
+                        {link.subItems.map((sub) => (
+                          <div
+                            key={sub.name}
+                            onClick={(e) => handleNavClick(e, sub.href)}
+                            className="flex items-center gap-3 py-2 px-3 rounded-lg text-muted-foreground hover:bg-secondary/20 transition-all cursor-pointer"
+                          >
+                            <sub.icon className="w-3.5 h-3.5" />
+                            <span className="text-xs font-medium">{sub.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </Link>
+                  </div>
                 ))}
                 <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
                   {user ? (

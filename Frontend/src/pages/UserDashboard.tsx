@@ -22,14 +22,21 @@ import {
     Gauge,
     Flame,
     TrendingUp,
-    TrendingDown
+    TrendingDown,
+    AlertTriangle,
+    ArrowRight,
+    BarChart3,
+    Building2,
+    Info,
+    RotateCcw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/landing/Navbar";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { dashboardApi, type ContributionMonth, type RecentSubmission, type AcceptedSubmission } from "@/services/dashboardApi";
+import { dashboardApi, type ContributionMonth, type RecentSubmission, type AcceptedSubmission, type TopicProgress, type WeakArea } from "@/services/dashboardApi";
+import UserMockOAList from "@/components/dashboard/UserMockOAList";
 
 const UserDashboard = () => {
     const { user } = useAuth();
@@ -55,6 +62,14 @@ const UserDashboard = () => {
     const [recentPage, setRecentPage] = useState(0);
     const [acceptedPage, setAcceptedPage] = useState(0);
     const itemsPerPage = 4;
+
+    // DSA Mastery state
+    const [topicProgress, setTopicProgress] = useState<TopicProgress[]>([]);
+    const [weakAreas, setWeakAreas] = useState<WeakArea[]>([]);
+    const [dsaMasteryLoading, setDsaMasteryLoading] = useState(true);
+    const [isWeakFlipped, setIsWeakFlipped] = useState(false);
+    const [weakPage, setWeakPage] = useState(0);
+    const itemsPerWeakPage = 4;
 
     // Fetch dashboard data
     useEffect(() => {
@@ -112,6 +127,17 @@ const UserDashboard = () => {
                 // Update submissions
                 setRecentSubmissions(Array.isArray(recentData) ? recentData : []);
                 setAcceptedSubmissions(Array.isArray(acceptedData) ? acceptedData : []);
+
+                // Fetch DSA Mastery data
+                try {
+                    const dsaData = await dashboardApi.getDSAMastery();
+                    setTopicProgress(dsaData.topicProgress || []);
+                    setWeakAreas(dsaData.weakAreas || []);
+                } catch (dsaError) {
+                    console.error('Error fetching DSA mastery data:', dsaError);
+                } finally {
+                    setDsaMasteryLoading(false);
+                }
 
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
@@ -271,59 +297,400 @@ const UserDashboard = () => {
                 </div>
             ),
             dsa: (
-                <Card className="bg-[#111111] border-border/40">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Code2 className="w-5 h-5 text-blue-400" />
-                            DSA Mastery
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {[
-                                { topic: "Arrays", progress: 85, total: 50, solved: 42 },
-                                { topic: "Linked Lists", progress: 60, total: 30, solved: 18 },
-                                { topic: "Trees", progress: 45, total: 40, solved: 18 },
-                                { topic: "Graphs", progress: 30, total: 35, solved: 10 },
-                            ].map((item, i) => (
-                                <div key={i} className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="font-medium">{item.topic}</span>
-                                        <span className="text-muted-foreground">{item.solved}/{item.total}</span>
+                <div className="space-y-6">
+                    {/* 1️⃣ Topic-wise Progress + Accuracy (CORE) */}
+                    <Card className="bg-[#111111] border-border/40 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 blur-3xl rounded-full -mr-16 -mt-16" />
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-xl">
+                                        <Code2 className="w-5 h-5 text-blue-400" />
+                                        Topic-wise DSA Mastery
+                                    </CardTitle>
+                                    <CardDescription>Track your progress across all DSA topics</CardDescription>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-2xl font-bold text-blue-400">{totalAccepted}</div>
+                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Problems Solved</div>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {dsaMasteryLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
+                                </div>
+                            ) : topicProgress.length > 0 ? (
+                                <div className="space-y-6 pt-8">
+                                    {/* Bar Graph */}
+                                    <div className="relative h-64 flex items-end justify-between gap-2 px-4 pb-12 pt-4 bg-gradient-to-b from-blue-500/5 to-transparent rounded-xl">
+                                        {/* Y-axis labels */}
+                                        <div className="absolute left-0 top-0 bottom-12 flex flex-col justify-between text-[10px] font-bold text-blue-400/60">
+                                            <span>100</span>
+                                            <span>75</span>
+                                            <span>50</span>
+                                            <span>25</span>
+                                            <span>0</span>
+                                        </div>
+
+                                        {/* Grid lines */}
+                                        <div className="absolute left-8 right-0 top-0 bottom-12 flex flex-col justify-between pointer-events-none">
+                                            {[0, 1, 2, 3, 4].map(i => (
+                                                <div key={i} className="w-full h-px bg-gradient-to-r from-blue-500/20 via-blue-400/10 to-transparent" />
+                                            ))}
+                                        </div>
+
+                                        {/* Bars */}
+                                        {topicProgress.slice(0, 10).map((item, i) => {
+                                            const progress = item.total > 0 ? (item.solved / item.total) * 100 : 0;
+                                            const maxHeight = 200;
+                                            const barHeight = (progress / 100) * maxHeight;
+                                            const isWeak = weakAreas.some(wa => wa.topic === item.topic) || item.accuracy < 50;
+
+                                            return (
+                                                <div key={i} className="flex-1 flex flex-col items-center group relative min-w-0">
+                                                    {/* Tooltip */}
+                                                    <div className="absolute -top-24 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 scale-95 group-hover:scale-100">
+                                                        <div className="bg-gradient-to-br from-blue-600 to-blue-800 border border-blue-400/30 rounded-xl px-4 py-3 text-xs whitespace-nowrap shadow-2xl shadow-blue-500/20">
+                                                            <div className="font-bold text-white mb-2 text-sm">{item.topic}</div>
+                                                            <div className="text-blue-100 space-y-1">
+                                                                <div className="flex justify-between gap-4">
+                                                                    <span className="text-blue-200">Solved:</span>
+                                                                    <span className="font-bold text-white">{item.solved}/{item.total}</span>
+                                                                </div>
+                                                                <div className="flex justify-between gap-4">
+                                                                    <span className="text-blue-200">Accuracy:</span>
+                                                                    <span className="font-bold text-white">{item.accuracy}%</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Accuracy badge */}
+                                                    <div className="absolute -top-6 text-[10px] font-black px-2 py-1 rounded-full shadow-lg text-blue-400 bg-blue-500/20 border border-blue-400/30 shadow-blue-500/20">
+                                                        {item.accuracy}%
+                                                    </div>
+
+                                                    {/* Bar */}
+                                                    <div
+                                                        className="w-[40%] rounded-t-xl transition-all duration-1000 ease-out relative overflow-hidden group-hover:scale-105 shadow-lg bg-gradient-to-t from-blue-600 via-blue-500 to-cyan-400 shadow-blue-500/50"
+                                                        style={{
+                                                            height: `${barHeight}px`,
+                                                            transitionDelay: `${i * 50}ms`,
+                                                            boxShadow: '0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.2)'
+                                                        }}
+                                                    >
+                                                        {/* Animated glow effect */}
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/20 to-white/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                                                        {/* Shimmer effect */}
+                                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+
+                                                        {/* Solved count inside bar */}
+                                                        {barHeight > 30 && (
+                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                <span className="text-white font-black text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                                                                    {item.solved}
+                                                                </span>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Bottom glow */}
+                                                        <div className={cn(
+                                                            "absolute bottom-0 left-0 right-0 h-1",
+                                                            isWeak ? "bg-amber-300" : "bg-cyan-300"
+                                                        )} />
+                                                    </div>
+
+                                                    {/* Topic label */}
+                                                    <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-full">
+                                                        <div className="text-[9px] text-center text-blue-300/60 font-bold truncate px-1 group-hover:text-blue-400 group-hover:scale-110 transition-all">
+                                                            {item.topic}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
-                                        <div className="h-full bg-blue-400 transition-all duration-1000" style={{ width: `${item.progress}%` }} />
+
+                                    {/* Legend */}
+                                    <div className="flex items-center justify-center gap-8 pt-4 border-t border-blue-500/10">
+                                        <div className="flex items-center gap-2 group cursor-pointer">
+                                            <div className="w-4 h-4 rounded-md bg-gradient-to-t from-blue-600 via-blue-500 to-cyan-400 shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-shadow" />
+                                            <span className="text-xs font-semibold text-blue-300 group-hover:text-blue-200 transition-colors">DSA Topics Progress</span>
+                                        </div>
                                     </div>
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <p className="text-sm">No topic data available yet</p>
+                                    <p className="text-xs mt-1">Start solving problems to see your progress!</p>
+                                </div>
+                            )}
+                        </CardContent>
+
+                    </Card>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* 2️⃣ Weak Areas Detector (VERY IMPRESSIVE) */}
+                        <div className="relative h-[480px] w-full [perspective:1000px] group/flip">
+                            <div className={cn(
+                                "relative w-full h-full transition-all duration-700 [transform-style:preserve-3d]",
+                                isWeakFlipped && "[transform:rotateY(180deg)]"
+                            )}>
+                                {/* FRONT SIDE */}
+                                <Card className="absolute inset-0 backface-hidden bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-500/20 overflow-hidden [backface-visibility:hidden]">
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 blur-2xl rounded-full -mr-12 -mt-12" />
+                                    <CardHeader className="pb-3">
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="flex items-center gap-2 text-lg">
+                                                <AlertTriangle className="w-5 h-5 text-orange-400" />
+                                                <span className="text-orange-400">Weak Areas Detector</span>
+                                            </CardTitle>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full text-orange-400 hover:bg-orange-400/10"
+                                                onClick={() => setIsWeakFlipped(true)}
+                                            >
+                                                <Info className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                        <CardDescription>AI-identified topics that need attention</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        {dsaMasteryLoading ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400"></div>
+                                            </div>
+                                        ) : weakAreas.length > 0 ? (
+                                            <>
+                                                <div className="space-y-3 h-[280px] overflow-hidden pr-1">
+                                                    {weakAreas.slice(weakPage * itemsPerWeakPage, (weakPage + 1) * itemsPerWeakPage).map((item, i) => (
+                                                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-black/20 border border-orange-500/10 hover:border-orange-500/30 transition-colors animate-in fade-in slide-in-from-right-4 duration-300" style={{ animationDelay: `${i * 100}ms` }}>
+                                                            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                                <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <h5 className="font-bold text-sm text-white">{item.topic}</h5>
+                                                                    <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                                                                    <span className="text-xs text-orange-400">{item.subtopic}</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground">
+                                                                    {item.reason}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Pagination Controls */}
+                                                <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                                                    <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                                                        Page {weakPage + 1} of {Math.ceil(weakAreas.length / itemsPerWeakPage)}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30"
+                                                            onClick={() => setWeakPage(prev => Math.max(0, prev - 1))}
+                                                            disabled={weakPage === 0}
+                                                        >
+                                                            <ChevronLeft className="w-3 h-3" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30"
+                                                            onClick={() => setWeakPage(prev => Math.min(Math.ceil(weakAreas.length / itemsPerWeakPage) - 1, prev + 1))}
+                                                            disabled={weakPage >= Math.ceil(weakAreas.length / itemsPerWeakPage) - 1}
+                                                        >
+                                                            <ChevronRight className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="text-center py-8 text-muted-foreground">
+                                                <p className="text-sm">No weak areas detected! 🎉</p>
+                                                <p className="text-xs mt-1">Keep up the great work!</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* BACK SIDE (INFO) */}
+                                <Card className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-400/20 overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-24 h-24 bg-blue-500/10 blur-2xl rounded-full -ml-12 -mt-12" />
+                                    <CardHeader className="pb-3">
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="flex items-center gap-2 text-lg">
+                                                <Info className="w-5 h-5 text-blue-400" />
+                                                <span className="text-blue-400">Detection Logic</span>
+                                            </CardTitle>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full text-blue-400 hover:bg-blue-400/10"
+                                                onClick={() => setIsWeakFlipped(false)}
+                                            >
+                                                <RotateCcw className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                        <CardDescription>How we identify your weaknesses</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6 pt-4">
+                                        <div className="space-y-4">
+                                            <div className="p-3 rounded-lg bg-black/20 border border-blue-400/10">
+                                                <h5 className="font-bold text-sm text-white mb-2 flex items-center gap-2">
+                                                    <Target className="w-4 h-4 text-blue-400" />
+                                                    Accuracy Threshold
+                                                </h5>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Topics with less than <span className="text-blue-400 font-bold">50% accuracy</span> are automatically flagged as weak areas.
+                                                </p>
+                                            </div>
+
+                                            <div className="p-3 rounded-lg bg-black/20 border border-purple-400/10">
+                                                <h5 className="font-bold text-sm text-white mb-2 flex items-center gap-2">
+                                                    <Zap className="w-4 h-4 text-purple-400" />
+                                                    Attempt Frequency
+                                                </h5>
+                                                <p className="text-xs text-muted-foreground">
+                                                    High failure rates (WAs, TLEs) in the last 10 submissions for a specific topic.
+                                                </p>
+                                            </div>
+
+                                            <div className="p-3 rounded-lg bg-black/20 border border-orange-400/10">
+                                                <h5 className="font-bold text-sm text-white mb-2 flex items-center gap-2">
+                                                    <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                                    Consistency Gaps
+                                                </h5>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Topics you haven't practiced in over 15 days despite having low initial scores.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-white/5">
+                                            <p className="text-[10px] text-center text-muted-foreground italic">
+                                                "Practice makes perfect. Focus on these to improve your overall rating."
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
+
+                        {/* 3️⃣ Difficulty Balance (Interview Oriented) */}
+                        <Card className="bg-[#111111] border-border/40 overflow-hidden relative">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-2xl rounded-full -mr-12 -mt-12" />
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <BarChart3 className="w-5 h-5 text-purple-400" />
+                                    Difficulty Balance
+                                </CardTitle>
+                                <CardDescription>Interview-ready difficulty distribution</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {/* Difficulty Breakdown */}
+                                <div className="space-y-4">
+                                    {[
+                                        { level: "Easy", count: difficultyBreakdown.Easy, color: "text-green-400", bg: "bg-green-400", percentage: 45, target: 40 },
+                                        { level: "Medium", count: difficultyBreakdown.Medium, color: "text-amber-400", bg: "bg-amber-400", percentage: 40, target: 45 },
+                                        { level: "Hard", count: difficultyBreakdown.Hard, color: "text-red-400", bg: "bg-red-400", percentage: 15, target: 15 },
+                                    ].map((item, i) => {
+                                        const total = difficultyBreakdown.Easy + difficultyBreakdown.Medium + difficultyBreakdown.Hard;
+                                        const actualPercentage = total > 0 ? Math.round((item.count / total) * 100) : 0;
+
+                                        return (
+                                            <div key={i}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn("w-2 h-2 rounded-full", item.bg)} />
+                                                        <span className="text-sm font-medium text-white">{item.level}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={cn("text-sm font-bold", item.color)}>
+                                                            {actualPercentage}%
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                                                    <div
+                                                        className={cn("h-full transition-all duration-1000", item.bg)}
+                                                        style={{ width: `${actualPercentage}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Status Message */}
+                                <div className={cn(
+                                    "p-4 rounded-xl border text-center",
+                                    difficultyBreakdown.Hard >= 10 ? "bg-green-500/10 border-green-500/20" : "bg-orange-500/10 border-orange-500/20"
+                                )}>
+                                    <div className="flex items-center justify-center gap-2 mb-1">
+                                        {difficultyBreakdown.Hard >= 10 ? (
+                                            <CheckCircle2 className="w-4 h-4 text-green-400" />
+                                        ) : (
+                                            <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                        )}
+                                        <span className={cn(
+                                            "text-sm font-bold",
+                                            difficultyBreakdown.Hard >= 10 ? "text-green-400" : "text-orange-400"
+                                        )}>
+                                            {difficultyBreakdown.Hard >= 10 ? "✅ Interview-ready difficulty mix" : "⚠️ Hard problems under-practiced"}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {difficultyBreakdown.Hard >= 10
+                                            ? "Your difficulty distribution matches interview patterns"
+                                            : "Focus on solving more Hard problems to match interview standards"}
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* 4️⃣ Company-aligned DSA Readiness (🔥 GAME CHANGER) */}
+                    <Card className="bg-gradient-to-br from-primary/5 via-purple-500/5 to-pink-500/5 border-primary/20 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 blur-3xl rounded-full -mr-20 -mt-20" />
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-xl">
+                                        <Building2 className="w-5 h-5 text-primary" />
+                                        <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+                                            Company-Aligned DSA Readiness
+                                        </span>
+                                    </CardTitle>
+                                    <CardDescription>See how ready you are for top tech companies</CardDescription>
+                                </div>
+                                <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">🔥 Game Changer</span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="min-h-[200px] flex flex-col items-center justify-center text-center">
+                            <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
+                                <Briefcase className="w-8 h-8 text-primary/20" />
+                            </div>
+                            <h5 className="text-white font-bold mb-1">Coming Soon</h5>
+                            <p className="text-xs text-muted-foreground max-w-[250px]">
+                                We are currently calibrating readiness metrics for top tech companies. Check back soon for your personalized roadmaps!
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
             ),
             company: (
-                <Card className="bg-[#111111] border-border/40">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Briefcase className="w-5 h-5 text-purple-400" />
-                            Company OA
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {[
-                                { company: "Google", attempted: 12, total: 50 },
-                                { company: "Amazon", attempted: 8, total: 45 },
-                                { company: "Microsoft", attempted: 15, total: 40 },
-                                { company: "Meta", attempted: 5, total: 35 },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5 hover:border-purple-400/30 transition-colors">
-                                    <span className="font-medium">{item.company}</span>
-                                    <span className="text-sm text-muted-foreground">{item.attempted}/{item.total} completed</span>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                <UserMockOAList />
             ),
             interviews: (
                 <Card className="bg-[#111111] border-border/40">

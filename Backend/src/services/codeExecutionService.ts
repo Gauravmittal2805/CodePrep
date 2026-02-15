@@ -551,4 +551,50 @@ int main() {
 
         return results;
     }
+
+    public static async runCleanup(): Promise<{
+        tempFilesCleaned: boolean;
+        dockerPruned: boolean;
+        error?: string;
+    }> {
+        const result = {
+            tempFilesCleaned: false,
+            dockerPruned: false
+        };
+
+        try {
+            // 1. Clean TEMP_DIR
+            // Using fs/promises mkdir and rm which are already available or can be imported
+            const { rm } = require('fs/promises');
+            await rm(TEMP_DIR, { recursive: true, force: true });
+            await mkdir(TEMP_DIR, { recursive: true });
+            result.tempFilesCleaned = true;
+
+            // 2. Prune Docker (if available)
+            // We use child_process.exec which is already imported as exec
+            const { exec: execCallback } = require('child_process');
+            const { promisify } = require('util');
+            const execAsync = promisify(execCallback);
+
+            try {
+                // Try several docker cleanup commands
+                // Prune stopped containers
+                await execAsync('docker container prune -f');
+                // Prune unused networks
+                await execAsync('docker network prune -f');
+                result.dockerPruned = true;
+            } catch (dockerErr: any) {
+                // Docker might not be installed or accessible
+                console.warn('Docker prune failed or not available:', dockerErr.message);
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Cleanup error:', error);
+            return {
+                ...result,
+                error: error instanceof Error ? error.message : 'Unknown error during cleanup'
+            };
+        }
+    }
 }

@@ -9,11 +9,30 @@ import LeaderboardSection from "@/components/landing/LeaderboardSection";
 import FinalCTASection from "@/components/landing/FinalCTASection";
 import Footer from "@/components/landing/Footer";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
+  const handleStartPracticing = () => {
+    if (user) {
+      navigate('/problems');
+    } else {
+      setIsLoginOpen(true);
+    }
+  };
+
+  const handleExploreCompanies = () => {
+    if (user) {
+      navigate('/companies');
+    } else {
+      setIsLoginOpen(true);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -24,7 +43,10 @@ const Index = () => {
         setIsRegisterOpen={setIsRegisterOpen}
       />
       <main>
-        <HeroSection onGetStarted={() => setIsRegisterOpen(true)} />
+        <HeroSection
+          onGetStarted={handleStartPracticing}
+          onExploreCompanies={handleExploreCompanies}
+        />
         <StatsSection />
         <CompaniesSection />
         <MockOASection />

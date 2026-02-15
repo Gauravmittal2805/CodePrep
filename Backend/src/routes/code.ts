@@ -3,7 +3,9 @@ import { CodeExecutionService } from '../services/codeExecutionService';
 import { body, validationResult } from 'express-validator';
 import Problem from '../models/Problem';
 import Submission from '../models/Submission';
+import CompanyOAQuestion from '../models/CompanyOAQuestion';
 import { requireAuth } from '../middleware/auth';
+import mongoose from 'mongoose';
 
 const router = Router();
 
@@ -56,6 +58,7 @@ router.post(
     body('problemIdentifier').optional().isString(),
     body('includeDetails').optional().isBoolean(),
     body('runHidden').optional().isBoolean(), // Add runHidden flag
+    body('contestId').optional().isString(),
     body('testCases').optional().isArray(),
     body('testCases.*.input').optional().custom((value) => {
       if (typeof value === 'string') return true;
@@ -71,7 +74,7 @@ router.post(
     }
 
     try {
-      const { code, language, testCases, problemIdentifier, includeDetails, runHidden } = req.body;
+      const { code, language, testCases, problemIdentifier, includeDetails, runHidden, contestId } = req.body;
 
       console.log('Test Request:', { problemIdentifier, runHidden, includeDetails });
 
@@ -87,9 +90,17 @@ router.post(
           });
         }
 
-        const problem = await Problem.findOne({
+        let problem: any = await Problem.findOne({
           $or: [{ slug: problemIdentifier }, { id: problemIdentifier }]
         }).select('test_cases hidden_test_cases');
+
+        let isOAQuestion = false;
+
+        if (!problem) {
+          // Check if it's a Company OA Question
+          problem = await CompanyOAQuestion.findById(problemIdentifier);
+          if (problem) isOAQuestion = true;
+        }
 
         if (!problem) {
           return res.status(404).json({
@@ -98,27 +109,29 @@ router.post(
           });
         }
 
-        // Robust selection logic
-        const rawPublic = problem.test_cases || [];
-        const rawHidden = problem.hidden_test_cases || [];
+        if (isOAQuestion) {
+          const sourceTestCases = runHidden ? (problem.hiddenTestcases || []) : (problem.sampleTestcases || []);
+          effectiveTestCases = sourceTestCases.map((tc: any) => ({
+            input: tc.input || '',
+            expectedOutput: String(tc.output || '')
+          }));
+        } else {
+          // Robust selection logic for regular problems
+          const rawPublic = problem.test_cases || [];
+          const rawHidden = problem.hidden_test_cases || [];
 
-        // For "Run" (public), ensure we only take non-hidden cases from the main list
-        // If the main list has isHidden property, respect it.
-        const effectivePublic = rawPublic.filter((tc: any) => !tc.isHidden);
+          const effectivePublic = rawPublic.filter((tc: any) => !tc.isHidden);
+          let effectiveHidden = rawHidden.length > 0
+            ? rawHidden.filter((tc: any) => tc.input && tc.input.trim() !== '' && tc.output !== undefined)
+            : rawPublic.filter((tc: any) => tc.isHidden);
 
-        // For "Submit" (hidden), prioritize hidden_test_cases. 
-        // If empty, look for hidden ones in the main list.
-        // Also filter out test cases with empty input/output (default empty test cases)
-        let effectiveHidden = rawHidden.length > 0
-          ? rawHidden.filter((tc: any) => tc.input && tc.input.trim() !== '' && tc.output !== undefined)
-          : rawPublic.filter((tc: any) => tc.isHidden);
+          const sourceTestCases = runHidden ? effectiveHidden : effectivePublic;
 
-        const sourceTestCases = runHidden ? effectiveHidden : effectivePublic;
-
-        effectiveTestCases = sourceTestCases.map((tc: any) => ({
-          input: (tc?.input ?? '') as any,
-          expectedOutput: String(tc.output ?? '')
-        }));
+          effectiveTestCases = sourceTestCases.map((tc: any) => ({
+            input: (tc?.input ?? '') as any,
+            expectedOutput: String(tc.output ?? '')
+          }));
+        }
       }
 
       if (!effectiveTestCases.length) {
@@ -158,6 +171,20 @@ router.post(
       // Save submission if it's a "Submit" run (runHidden = true)
       if (runHidden && req.user) {
         try {
+          // Check if it's a practice problem or an OA question to set the source correctly
+          const isObjectId = mongoose.Types.ObjectId.isValid(problemIdentifier);
+          let isPracticeProblem = false;
+
+          if (isObjectId) {
+            isPracticeProblem = await Problem.exists({ _id: problemIdentifier }) !== null;
+          }
+
+          if (!isPracticeProblem) {
+            isPracticeProblem = await Problem.exists({
+              $or: [{ slug: problemIdentifier }, { id: problemIdentifier }]
+            }) !== null;
+          }
+
           await Submission.create({
             uid: req.user.uid,
             problemIdentifier,
@@ -167,7 +194,9 @@ router.post(
             passedCount,
             totalTests,
             executionTime: Math.max(...results.map(r => r.executionTime), 0),
-            results: finalResults
+            results: finalResults,
+            source: req.body.contestId ? 'CONTEST' : (isPracticeProblem ? 'PRACTICE' : 'MOCK_OA'),
+            contestId: req.body.contestId
           });
         } catch (dbError) {
           console.error('Failed to save submission:', dbError);
@@ -205,7 +234,8 @@ router.get('/submissions/:problemIdentifier', requireAuth, async (req: Request, 
 
     const submissions = await Submission.find({
       uid,
-      problemIdentifier
+      problemIdentifier,
+      source: { $nin: ['MOCK_OA', 'CONTEST'] }
     }).sort({ createdAt: -1 });
 
     res.json({
@@ -235,7 +265,8 @@ router.get('/user-stats', requireAuth, async (req: Request, res: Response) => {
     // Fetch unique days where user has at least one successful submission
     const submissions = await Submission.find({
       uid,
-      verdict: 'AC'
+      verdict: 'AC',
+      source: { $nin: ['MOCK_OA', 'CONTEST'] }
     }).select('createdAt');
 
     // Extract unique dates (normalized to midnight)

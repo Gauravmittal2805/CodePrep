@@ -72,13 +72,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const checkStatus = async () => {
             try {
-                const token = await user.getIdToken(true); // Force refresh to catch revocation
+                await user.getIdToken(true); // Force refresh to catch revocation
                 const response = await fetch("http://localhost:5001/api/auth/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         uid: user.uid,
                         email: user.email,
+                        fullName: user.displayName || 'Anonymous User',
+                        photoURL: user.photoURL
                     })
                 });
 

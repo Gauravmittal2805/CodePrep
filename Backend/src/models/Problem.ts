@@ -101,7 +101,7 @@ const ProblemSchema: Schema = new Schema({
     },
     status: {
         type: String,
-        enum: ["Draft", "Published"],
+        enum: ["Draft", "Published", "ContestOnly"],
         default: "Published"
     },
     isReported: {

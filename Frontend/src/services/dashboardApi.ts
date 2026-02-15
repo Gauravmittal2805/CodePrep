@@ -73,6 +73,41 @@ export interface LeaderboardEntry {
     rank: number;
 }
 
+export interface TopicProgress {
+    topic: string;
+    solved: number;
+    total: number;
+    attempts: number;
+    accepted: number;
+    wa: number;
+    tle: number;
+    accuracy: number;
+    subtopics: string[];
+    isWeak: boolean;
+    weakReasons: string[];
+}
+
+export interface WeakArea {
+    topic: string;
+    subtopic: string;
+    solved: number;
+    total: number;
+    accuracy: number;
+    wrongAttempts: number;
+    type: 'unsolved' | 'wrong' | 'weak';
+    reason: string;
+}
+
+export interface DSAMasteryData {
+    topicProgress: TopicProgress[];
+    weakAreas: WeakArea[];
+    summary: {
+        totalTopics: number;
+        weakTopics: number;
+        averageAccuracy: number;
+    };
+}
+
 export const dashboardApi = {
     getStats: async (): Promise<DashboardStats> => {
         const response = await api.get('/dashboard/stats');
@@ -96,6 +131,11 @@ export const dashboardApi = {
 
     getLeaderboard: async (): Promise<LeaderboardEntry[]> => {
         const response = await api.get('/dashboard/leaderboard');
+        return response.data;
+    },
+
+    getDSAMastery: async (): Promise<DSAMasteryData> => {
+        const response = await api.get('/dashboard/dsa-mastery');
         return response.data;
     },
 };
