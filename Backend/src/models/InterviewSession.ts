@@ -8,7 +8,7 @@ export interface IInterviewSession extends Document {
     aiFocusTags: string[];
     resumeContent: string;
     transcript: { role: string; text: string; timestamp: Date }[];
-    questionWiseAnswers: { question: string; answer: string; score: number; feedback: string; duration: number }[];
+    questionWiseAnswers: { question: string; answer: string; score: number; feedback: string; suggestion: string; duration: number }[];
     metrics: {
         wpm: number;
         fillerWordCount: number;
@@ -26,6 +26,7 @@ export interface IInterviewSession extends Document {
         detailedFeedback: string[];
         improvementPlan: string[];
         hireRecommendation: string;
+        questionFeedback: { question: string; score: number; feedback: string; suggestion: string }[];
     };
     status: string; // completed, in-progress
     createdAt: Date;
@@ -48,6 +49,7 @@ const InterviewSessionSchema: Schema = new Schema({
         answer: { type: String },
         score: { type: Number },
         feedback: { type: String },
+        suggestion: { type: String },
         duration: { type: Number }
     }],
     metrics: {
@@ -66,7 +68,13 @@ const InterviewSessionSchema: Schema = new Schema({
         weaknesses: [{ type: String }],
         detailedFeedback: [{ type: String }],
         improvementPlan: [{ type: String }],
-        hireRecommendation: { type: String }
+        hireRecommendation: { type: String },
+        questionFeedback: [{
+            question: { type: String },
+            score: { type: Number },
+            feedback: { type: String },
+            suggestion: { type: String }
+        }]
     },
     status: { type: String, default: 'in-progress' },
     createdAt: { type: Date, default: Date.now }

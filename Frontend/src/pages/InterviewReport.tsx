@@ -104,6 +104,25 @@ export default function InterviewReport() {
         return `${mins}m ${secs}s`;
     };
 
+    const handleShare = async () => {
+        const shareData = {
+            title: `Interview Report - ${meta.title}`,
+            text: `Check out my ${meta.type} interview report for ${meta.company} on CodePrep!`,
+            url: window.location.href
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(window.location.href);
+                alert("Link copied to clipboard!");
+            }
+        } catch (err) {
+            console.error("Error sharing:", err);
+        }
+    };
+
     return (
         <TooltipProvider>
             <div className="min-h-screen bg-[#020617] text-white selection:bg-primary selection:text-black">
@@ -129,10 +148,17 @@ export default function InterviewReport() {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" className="hidden md:flex bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest h-12 rounded-xl border border-white/10 px-6 gap-2 hover:bg-white/10">
+                            <Button 
+                                variant="outline" 
+                                onClick={handleShare}
+                                className="hidden md:flex bg-white/5 border-white/5 text-[10px] font-black uppercase tracking-widest h-12 rounded-xl border border-white/10 px-6 gap-2 hover:bg-white/10 hover:text-white"
+                            >
                                 <Share2 className="w-4 h-4" /> Share
                             </Button>
-                            <Button className="bg-primary text-black text-[10px] font-black uppercase tracking-widest h-12 rounded-xl px-8 shadow-[0_4px_20px_rgba(var(--primary),0.3)] hover:scale-105 transition-transform gap-2">
+                            <Button 
+                                onClick={() => window.print()}
+                                className="bg-cyan-400 text-black text-[10px] font-black uppercase tracking-widest h-12 rounded-xl px-8 shadow-[0_4px_20px_rgba(34,211,238,0.3)] hover:bg-cyan-300 hover:scale-105 transition-all gap-2"
+                            >
                                 <Download className="w-4 h-4" /> Download Report
                             </Button>
                         </div>
@@ -374,14 +400,27 @@ export default function InterviewReport() {
                                             <span className="text-[9px] font-black opacity-30 uppercase tracking-[0.3em] mt-3">Accuracy</span>
                                         </div>
                                     </div>
-                                    <div className="lg:ml-22 pl-12 border-l-2 border-white/5 py-2 relative z-10">
-                                        <div className="flex items-center gap-3 mb-4 text-muted-foreground">
-                                            <div className="w-2 h-0.5 bg-primary/40 rounded-full" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">AI Feedback</span>
+                                    <div className="lg:ml-22 pl-12 border-l-2 border-white/5 py-2 relative z-10 space-y-6">
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-2 text-muted-foreground">
+                                                <div className="w-2 h-0.5 bg-primary/40 rounded-full" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">AI Feedback</span>
+                                            </div>
+                                            <p className="text-base font-bold opacity-60 leading-relaxed group-hover:opacity-100 transition-opacity">
+                                                {q.feedback}
+                                            </p>
                                         </div>
-                                        <p className="text-base font-bold opacity-60 leading-relaxed group-hover:opacity-100 transition-opacity">
-                                            {q.feedback}
-                                        </p>
+                                        {q.suggestion && (
+                                            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                                                <div className="flex items-center gap-2 mb-2 text-primary">
+                                                    <Sparkles className="w-3.5 h-3.5" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest">Expert Suggestion</span>
+                                                </div>
+                                                <p className="text-sm font-medium opacity-80 italic">
+                                                    "{q.suggestion}"
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -416,27 +455,29 @@ export default function InterviewReport() {
                     </div>
 
                     {/* Bottom Action Footer */}
-                    <div className="pt-24 pb-48 flex flex-col items-center text-center">
-                        <div className="w-24 h-24 rounded-[32px] bg-white/5 border border-white/10 flex items-center justify-center mb-10 shadow-2xl group hover:border-primary/30 transition-all">
-                            <Target className="w-10 h-10 opacity-20 group-hover:opacity-100 group-hover:text-primary transition-all duration-700" />
+                    <div className="pt-32 pb-48 flex flex-col items-center text-center">
+                        <div className="w-24 h-24 rounded-[32px] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-10 shadow-[0_0_50px_rgba(34,211,238,0.1)] group hover:border-cyan-500/40 transition-all duration-700">
+                            <Target className="w-10 h-10 text-cyan-500 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
                         </div>
-                        <h3 className="text-4xl font-black uppercase tracking-tighter mb-6">Elevate your game.</h3>
-                        <p className="text-muted-foreground text-sm font-bold italic mb-16 max-w-sm opacity-60 uppercase tracking-widest">
+                        <h3 className="text-5xl font-black uppercase tracking-tighter mb-6 bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent">
+                            Elevate your game.
+                        </h3>
+                        <p className="text-slate-400 text-xs font-black uppercase tracking-[0.4em] mb-16 max-w-sm opacity-60">
                             Practice leads to professional mastery.
                         </p>
-                        <div className="flex flex-wrap items-center justify-center gap-8">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                             <Button
                                 onClick={() => navigate('/interview/lobby')}
-                                className="bg-primary text-black font-black px-14 h-20 rounded-[32px] shadow-[0_10px_40px_rgba(var(--primary),0.3)] hover:scale-105 transition-all text-xs uppercase tracking-[0.2em]"
+                                className="bg-cyan-400 hover:bg-cyan-300 text-black font-black px-12 h-16 rounded-2xl shadow-[0_10px_30px_rgba(34,211,238,0.3)] hover:scale-105 transition-all text-[11px] uppercase tracking-[0.2em] min-w-[240px]"
                             >
                                 Start New Session
                             </Button>
                             <Button
                                 variant="outline"
                                 onClick={() => window.print()}
-                                className="bg-white/5 border-white/10 text-white font-black px-14 h-20 rounded-[32px] hover:bg-white/10 text-xs uppercase tracking-[0.2em] backdrop-blur-md"
+                                className="bg-white/5 border-white/10 text-white font-black px-12 h-16 rounded-2xl hover:bg-white/10 text-[11px] uppercase tracking-[0.2em] backdrop-blur-md min-w-[240px] border border-white/20"
                             >
-                                Export Artifacts
+                                <Download className="w-4 h-4 mr-2" /> Export Artifacts
                             </Button>
                         </div>
                     </div>
@@ -450,6 +491,9 @@ export default function InterviewReport() {
                 :root {
                     --primary: 34, 211, 238;
                 }
+                .text-primary { color: rgb(34, 211, 238); }
+                .bg-primary { background-color: rgb(34, 211, 238); }
+                .border-primary { border-color: rgb(34, 211, 238); }
                 @media print {
                     .sticky, button { display: none !important; }
                     .min-h-screen { background: white !important; color: black !important; }

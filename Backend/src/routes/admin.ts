@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import User from '../models/User';
 import Problem from '../models/Problem';
 import Submission from '../models/Submission';
+import InterviewSession from '../models/InterviewSession';
 import admin from 'firebase-admin';
 
 const router = Router();
@@ -64,10 +65,14 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
             }
         });
 
-        // 5. Interviews (Mocked for now)
-        const interviewsToday = 0;
-        const feedbackPending = 0;
-        const avgInterviewScore = 0;
+        // 5. Interviews (Real Data)
+        const interviewsToday = await InterviewSession.countDocuments({ createdAt: { $gt: yesterday } });
+        const feedbackPending = await InterviewSession.countDocuments({ status: 'in-progress' });
+        
+        // Calculate average score for completed sessions
+        const completedSessions = await InterviewSession.find({ status: 'completed' }, 'aiReport.overallScore');
+        const totalScore = completedSessions.reduce((acc, sess) => acc + (sess.aiReport?.overallScore || 0), 0);
+        const avgInterviewScore = completedSessions.length > 0 ? Math.round(totalScore / completedSessions.length) : 0;
 
         res.json({
             success: true,
@@ -97,7 +102,8 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
                 interviews: {
                     today: interviewsToday,
                     pendingFeedback: feedbackPending,
-                    avgScore: avgInterviewScore
+                    avgScore: avgInterviewScore,
+                    totalCompleted: completedSessions.length
                 }
             }
         });
@@ -332,6 +338,165 @@ router.post('/judge/cleanup', requireAuth, async (req: Request, res: Response) =
     } catch (error) {
         console.error('Cleanup error:', error);
         res.status(500).json({ success: false, error: 'Cleanup failed' });
+    }
+});
+
+/**
+ * @route   GET /api/admin/submissions
+ * @desc    Get recent submissions across platform
+ */
+router.get('/submissions', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const { limit = 50, page = 1, verdict, contestId } = req.query;
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const query: any = {};
+        if (contestId) query.contestId = contestId;
+        if (verdict) {
+            if (verdict === 'FAILED') {
+                query.verdict = { $nin: ['AC', 'Accepted'] };
+            } else if (verdict === 'RE') {
+                query.verdict = 'RE';
+            } else {
+                query.verdict = verdict;
+            }
+        }
+
+        const submissions = await Submission.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(Number(limit));
+
+        // Get unique UIDs and Problem Identifiers to fetch info in bulk
+        const uids = [...new Set(submissions.map(s => s.uid))];
+        const probIds = [...new Set(submissions.map(s => s.problemIdentifier))];
+
+        const [users, problems] = await Promise.all([
+            User.find({ uid: { $in: uids } }, 'uid fullName photoURL email'),
+            Problem.find({ $or: [{ id: { $in: probIds } }, { slug: { $in: probIds } }] }, 'id slug title difficulty')
+        ]);
+
+        const userMap = new Map(users.map(u => [u.uid, u]));
+        const probMap = new Map();
+        problems.forEach(p => {
+            probMap.set(p.id, p);
+            probMap.set(p.slug, p);
+        });
+
+        const enrichedSubmissions = submissions.map(sub => {
+            const user = userMap.get(sub.uid);
+            const problem = probMap.get(sub.problemIdentifier);
+            return {
+                ...sub.toObject(),
+                user: user || { fullName: 'Unknown User', email: sub.uid },
+                problem: problem || { title: sub.problemIdentifier, difficulty: 'Medium' }
+            };
+        });
+
+        const total = await Submission.countDocuments(query);
+
+        res.json({
+            success: true,
+            data: enrichedSubmissions,
+            pagination: {
+                total,
+                page: Number(page),
+                limit: Number(limit),
+                pages: Math.ceil(total / Number(limit))
+            }
+        });
+    } catch (error) {
+        console.error('Fetch submissions error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch submissions' });
+    }
+});
+
+/**
+ * @route   GET /api/admin/contests/:contestId/leaderboard
+ * @desc    Get leaderboard for a specific contest
+ */
+router.get('/contests/:contestId/leaderboard', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const { contestId } = req.params;
+        const { Contest } = await import('../models/Contest');
+        
+        const contest = await Contest.findById(contestId);
+        if (!contest) {
+            return res.status(404).json({ success: false, error: 'Contest not found' });
+        }
+
+        // Get all submissions for this contest
+        const submissions = await Submission.find({ contestId })
+            .sort({ createdAt: 1 });
+
+        // Calculate leaderboard
+        const participantStats = new Map<string, any>();
+        
+        submissions.forEach(sub => {
+            if (!participantStats.has(sub.uid)) {
+                participantStats.set(sub.uid, {
+                    uid: sub.uid,
+                    totalScore: 0,
+                    solvedCount: 0,
+                    problems: new Map(),
+                    lastSubmissionTime: sub.createdAt
+                });
+            }
+
+            const stats = participantStats.get(sub.uid);
+            const probId = sub.problemIdentifier;
+            
+            if (!stats.problems.has(probId)) {
+                stats.problems.set(probId, { score: 0, time: sub.createdAt, attempts: 0, solved: false });
+            }
+
+            const probStats = stats.problems.get(probId);
+            
+            if (!probStats.solved) {
+                probStats.attempts++;
+                if (sub.verdict === 'AC' || sub.verdict === 'Accepted') {
+                    probStats.solved = true;
+                    // Find problem score from contest settings if available
+                    const contestProb = contest.problems.find((p: any) => p.problemId === probId);
+                    const score = contestProb?.score || 100;
+                    
+                    probStats.score = score;
+                    probStats.time = sub.createdAt;
+                    stats.totalScore += score;
+                    stats.solvedCount++;
+                    stats.lastSubmissionTime = sub.createdAt;
+                }
+            }
+        });
+
+        const leaderboard = Array.from(participantStats.values()).map(stats => ({
+            uid: stats.uid,
+            totalScore: stats.totalScore,
+            solvedCount: stats.solvedCount,
+            lastSubmissionTime: stats.lastSubmissionTime,
+            problems: Object.fromEntries(stats.problems)
+        })).sort((a, b) => {
+            if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+            return new Date(a.lastSubmissionTime).getTime() - new Date(b.lastSubmissionTime).getTime();
+        });
+
+        // Enrich with user info
+        const uids = leaderboard.map(l => l.uid);
+        const users = await User.find({ uid: { $in: uids } }, 'uid fullName email photoURL');
+        const userMap = new Map(users.map(u => [u.uid, u]));
+
+        const enrichedLeaderboard = leaderboard.map(entry => ({
+            ...entry,
+            user: userMap.get(entry.uid) || { fullName: 'Unknown User', email: entry.uid }
+        }));
+
+        res.json({
+            success: true,
+            data: enrichedLeaderboard
+        });
+    } catch (error) {
+        console.error('Contest leaderboard error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
     }
 });
 

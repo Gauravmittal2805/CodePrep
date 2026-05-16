@@ -7,7 +7,6 @@ import {
     Zap,
     Briefcase,
     Video,
-    Rocket,
     Star,
     MapPin,
     Mail,
@@ -24,22 +23,23 @@ import {
     TrendingUp,
     TrendingDown,
     AlertTriangle,
-    ArrowRight,
     BarChart3,
     Building2,
     Info,
     RotateCcw
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/landing/Navbar";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { dashboardApi, type ContributionMonth, type RecentSubmission, type AcceptedSubmission, type TopicProgress, type WeakArea } from "@/services/dashboardApi";
+import { dashboardApi, type ContributionMonth, type RecentSubmission, type AcceptedSubmission, type TopicProgress, type WeakArea, type CompanyReadiness, type InterviewSession } from "@/services/dashboardApi";
 import UserMockOAList from "@/components/dashboard/UserMockOAList";
 
 const UserDashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
@@ -66,6 +66,8 @@ const UserDashboard = () => {
     // DSA Mastery state
     const [topicProgress, setTopicProgress] = useState<TopicProgress[]>([]);
     const [weakAreas, setWeakAreas] = useState<WeakArea[]>([]);
+    const [companyReadiness, setCompanyReadiness] = useState<CompanyReadiness[]>([]);
+    const [interviewHistory, setInterviewHistory] = useState<InterviewSession[]>([]);
     const [dsaMasteryLoading, setDsaMasteryLoading] = useState(true);
     const [isWeakFlipped, setIsWeakFlipped] = useState(false);
     const [weakPage, setWeakPage] = useState(0);
@@ -79,10 +81,10 @@ const UserDashboard = () => {
             try {
                 // Fetch all data in parallel
                 const [statsData, contributionsData, recentData, acceptedData] = await Promise.all([
-                    dashboardApi.getStats(),
-                    dashboardApi.getContributions(),
-                    dashboardApi.getRecentSubmissions(),
-                    dashboardApi.getAcceptedSubmissions(),
+                    dashboardApi.getStats().catch(e => { console.error('Stats error:', e); return null; }),
+                    dashboardApi.getContributions().catch(e => { console.error('Contributions error:', e); return null; }),
+                    dashboardApi.getRecentSubmissions().catch(e => { console.error('Recent error:', e); return []; }),
+                    dashboardApi.getAcceptedSubmissions().catch(e => { console.error('Accepted error:', e); return []; }),
                 ]);
 
                 // Update stats
@@ -139,6 +141,22 @@ const UserDashboard = () => {
                     setDsaMasteryLoading(false);
                 }
 
+                // Fetch Company Readiness data
+                try {
+                    const readinessData = await dashboardApi.getCompanyReadiness();
+                    setCompanyReadiness(readinessData);
+                } catch (readinessError) {
+                    console.error('Error fetching company readiness:', readinessError);
+                }
+
+                // Fetch Interview History
+                try {
+                    const historyData = await dashboardApi.getInterviewHistory();
+                    setInterviewHistory(historyData);
+                } catch (historyError) {
+                    console.error('Error fetching interview history:', historyError);
+                }
+
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
 
@@ -175,7 +193,6 @@ const UserDashboard = () => {
         { label: "DSA Mastery", icon: Code2, color: "text-blue-400", id: "dsa" },
         { label: "Company OA", icon: Briefcase, color: "text-purple-400", id: "company" },
         { label: "Mock Interviews", icon: Video, color: "text-pink-400", id: "interviews" },
-        { label: "Placement Ready", icon: Rocket, color: "text-orange-400", id: "placement" },
     ];
 
     const [activeNavItem, setActiveNavItem] = useState<string | null>("level");
@@ -677,14 +694,72 @@ const UserDashboard = () => {
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="min-h-[200px] flex flex-col items-center justify-center text-center">
-                            <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
-                                <Briefcase className="w-8 h-8 text-primary/20" />
-                            </div>
-                            <h5 className="text-white font-bold mb-1">Coming Soon</h5>
-                            <p className="text-xs text-muted-foreground max-w-[250px]">
-                                We are currently calibrating readiness metrics for top tech companies. Check back soon for your personalized roadmaps!
-                            </p>
+                        <CardContent className="pt-2">
+                            {dsaMasteryLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                </div>
+                            ) : companyReadiness.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+                                    {companyReadiness.map((company, i) => (
+                                        <div key={i} className="group relative p-4 rounded-xl bg-black/40 border border-white/5 hover:border-primary/30 transition-all hover:scale-[1.02]">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                                                    {company.logo ? (
+                                                        <img src={company.logo} alt={company.name} className="w-6 h-6 object-contain" />
+                                                    ) : (
+                                                        <Building2 className="w-5 h-5 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <h5 className="font-bold text-sm text-white group-hover:text-primary transition-colors">{company.name}</h5>
+                                                    <div className="flex gap-1">
+                                                        {company.focusAreas.map((area, idx) => (
+                                                            <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/5 text-primary/70 border border-primary/10">
+                                                                {area}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-[10px]">
+                                                    <span className="text-muted-foreground font-medium">Readiness Score</span>
+                                                    <span className={cn(
+                                                        "font-bold",
+                                                        company.readinessScore > 70 ? "text-green-400" :
+                                                            company.readinessScore > 40 ? "text-primary" : "text-orange-400"
+                                                    )}>{company.readinessScore}%</span>
+                                                </div>
+                                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={cn(
+                                                            "h-full transition-all duration-1000",
+                                                            company.readinessScore > 70 ? "bg-green-500" :
+                                                                company.readinessScore > 40 ? "bg-primary" : "bg-orange-500"
+                                                        )}
+                                                        style={{ width: `${company.readinessScore}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Glow effect on hover */}
+                                            <div className="absolute inset-0 rounded-xl bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center text-center py-12">
+                                    <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
+                                        <Briefcase className="w-8 h-8 text-primary/20" />
+                                    </div>
+                                    <h5 className="text-white font-bold mb-1">No Readiness Data</h5>
+                                    <p className="text-xs text-muted-foreground max-w-[250px]">
+                                        Start solving problems to see how ready you are for top tech companies!
+                                    </p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -693,71 +768,111 @@ const UserDashboard = () => {
                 <UserMockOAList />
             ),
             interviews: (
-                <Card className="bg-[#111111] border-border/40">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Video className="w-5 h-5 text-pink-400" />
-                            Mock Interviews
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            <p className="text-sm text-muted-foreground mb-4">Practice with AI-powered mock interviews</p>
-                            {[
-                                { type: "Technical Round", duration: "45 min", difficulty: "Medium" },
-                                { type: "System Design", duration: "60 min", difficulty: "Hard" },
-                                { type: "Behavioral", duration: "30 min", difficulty: "Easy" },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5 hover:border-pink-400/30 transition-colors">
-                                    <div>
-                                        <p className="font-medium">{item.type}</p>
-                                        <p className="text-xs text-muted-foreground">{item.duration}</p>
-                                    </div>
-                                    <span className={cn(
-                                        "text-xs px-2 py-1 rounded-full",
-                                        item.difficulty === "Easy" ? "bg-green-500/10 text-green-500" :
-                                            item.difficulty === "Medium" ? "bg-amber-500/10 text-amber-500" :
-                                                "bg-red-500/10 text-red-500"
-                                    )}>{item.difficulty}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            ),
-            placement: (
-                <Card className="bg-[#111111] border-border/40">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Rocket className="w-5 h-5 text-orange-400" />
-                            Placement Ready
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-orange-500/10 to-primary/10 border border-orange-500/20">
-                                <h4 className="font-bold text-lg mb-2">Overall Readiness</h4>
-                                <div className="flex items-center gap-4">
-                                    <div className="text-4xl font-bold text-orange-400">72%</div>
-                                    <p className="text-sm text-muted-foreground">You're on the right track! Keep practicing to improve your placement readiness.</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Interview Options */}
+                    <Card className="bg-[#111111] border-border/40 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/5 blur-3xl rounded-full -mr-16 -mt-16" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <Video className="w-5 h-5 text-pink-400" />
+                                Start Mock Interview
+                            </CardTitle>
+                            <CardDescription>Select a round to practice with AI</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
                                 {[
-                                    { label: "DSA Skills", score: 85 },
-                                    { label: "System Design", score: 60 },
-                                    { label: "Communication", score: 75 },
-                                    { label: "Projects", score: 70 },
+                                    { type: "Technical Round", duration: "45 min", difficulty: "Medium", color: "text-pink-400", bg: "bg-pink-400/10" },
+                                    { type: "System Design", duration: "60 min", difficulty: "Hard", color: "text-purple-400", bg: "bg-purple-400/10" },
+                                    { type: "Behavioral", duration: "30 min", difficulty: "Easy", color: "text-green-400", bg: "bg-green-400/10" },
                                 ].map((item, i) => (
-                                    <div key={i} className="p-3 rounded-lg bg-black/20 border border-white/5">
-                                        <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                                        <p className="text-xl font-bold text-orange-400">{item.score}%</p>
+                                    <div
+                                        key={i}
+                                        onClick={() => navigate('/interview')}
+                                        className="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5 hover:border-pink-400/30 transition-all cursor-pointer group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", item.bg)}>
+                                                <Video className={cn("w-5 h-5", item.color)} />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-sm group-hover:text-pink-400 transition-colors">{item.type}</p>
+                                                <p className="text-[10px] text-muted-foreground">{item.duration}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={cn(
+                                                "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                                                item.difficulty === "Easy" ? "bg-green-500/10 text-green-500" :
+                                                    item.difficulty === "Medium" ? "bg-amber-500/10 text-amber-500" :
+                                                        "bg-red-500/10 text-red-500"
+                                            )}>{item.difficulty}</span>
+                                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-pink-400 transition-colors" />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+
+                    {/* Interview History */}
+                    <Card className="bg-[#111111] border-border/40 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full -mr-16 -mt-16" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <RotateCcw className="w-5 h-5 text-blue-400" />
+                                Interview History
+                            </CardTitle>
+                            <CardDescription>Review your past performance</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                                {dsaMasteryLoading ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                                    </div>
+                                ) : interviewHistory.length > 0 ? (
+                                    interviewHistory.map((session, i) => (
+                                        <div key={i} className="group flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5 hover:border-blue-400/30 transition-all">
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors">{session.interviewType}</p>
+                                                    <span className="text-[10px] text-muted-foreground">• {new Date(session.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={cn(
+                                                        "text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter",
+                                                        session.difficulty === "Easy" ? "bg-green-500/10 text-green-500" :
+                                                            session.difficulty === "Medium" ? "bg-amber-500/10 text-amber-500" :
+                                                                "bg-red-500/10 text-red-500"
+                                                    )}>{session.difficulty}</span>
+                                                    {session.aiReport && (
+                                                        <span className="text-[10px] font-black text-blue-400">SCORE: {session.aiReport.overallScore}%</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => navigate(`/interview/report/${session._id}`)}
+                                                className="h-8 text-[10px] font-bold text-blue-400 hover:bg-blue-400/10 border border-blue-400/10"
+                                            >
+                                                VIEW REPORT
+                                            </Button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                                        <div className="w-12 h-12 rounded-full bg-blue-500/5 flex items-center justify-center mb-3">
+                                            <Video className="w-6 h-6 text-blue-500/20" />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">No interviews taken yet.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             ),
         };
 
@@ -829,7 +944,10 @@ const UserDashboard = () => {
                                     </Button>
                                 </div>
 
-                                <Button className="w-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 mt-4">
+                                <Button 
+                                    onClick={() => navigate('/profile')}
+                                    className="w-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 mt-4 font-bold tracking-wide"
+                                >
                                     View Profile
                                 </Button>
                             </CardContent>

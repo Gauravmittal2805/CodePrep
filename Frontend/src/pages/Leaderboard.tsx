@@ -12,7 +12,8 @@ import {
     X,
     CheckCircle2,
     Flame,
-    TrendingUp
+    TrendingUp,
+    BrainCircuit
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,13 @@ import { Input } from "@/components/ui/input";
 import Navbar from "@/components/landing/Navbar";
 import { cn } from "@/lib/utils";
 import { dashboardApi, type LeaderboardEntry } from "@/services/dashboardApi";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
 
 const Leaderboard = () => {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -31,6 +39,7 @@ const Leaderboard = () => {
     // State for login/register modals (needed by Navbar)
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<LeaderboardEntry | null>(null);
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
@@ -316,7 +325,12 @@ const Leaderboard = () => {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-right">
                                                         <div className="flex items-center justify-end gap-2">
-                                                            <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                onClick={() => setSelectedUser(entry)}
+                                                                className="w-8 h-8 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white"
+                                                            >
                                                                 <ChevronRight className="w-4 h-4" />
                                                             </Button>
                                                         </div>
@@ -337,95 +351,237 @@ const Leaderboard = () => {
                     </>
                 )}
             </main>
+
+            {/* Stats Detail Modal */}
+            <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+                <DialogContent className="bg-[#0f0f0f] border-white/10 text-white max-w-md rounded-3xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+                    <div className="relative h-32 bg-gradient-to-br from-primary/20 to-purple-600/20 flex items-center justify-center shrink-0">
+                        <div className="absolute top-4 left-4 flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center font-black text-[10px] border border-white/10">
+                                #{selectedUser?.rank}
+                            </div>
+                        </div>
+                        <div className="relative">
+                            <div className="w-20 h-20 rounded-full border-4 border-[#0f0f0f] bg-secondary overflow-hidden shadow-2xl">
+                                {selectedUser?.photoURL ? (
+                                    <img src={selectedUser.photoURL} alt={selectedUser.fullName} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <User className="w-10 h-10 text-muted-foreground/50" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-black uppercase tracking-tight mb-1">{selectedUser?.fullName}</h2>
+                            <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Global Rank: {selectedUser?.rank}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                                <Zap className="w-5 h-5 text-primary mb-2" />
+                                <span className="text-xl font-black">{selectedUser?.score.toLocaleString()}</span>
+                                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Global Score</span>
+                            </div>
+                            <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                                <Target className="w-5 h-5 text-green-400 mb-2" />
+                                <span className="text-xl font-black">{selectedUser?.accuracy}%</span>
+                                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Accuracy</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 block mb-2">Performance Breakdown</span>
+                            {[
+                                { label: 'Easy Problems', val: selectedUser?.stats?.easy || 0, color: 'text-teal-400', icon: CheckCircle2 },
+                                { label: 'Medium Problems', val: selectedUser?.stats?.medium || 0, color: 'text-amber-400', icon: TrendingUp },
+                                { label: 'Hard Problems', val: selectedUser?.stats?.hard || 0, color: 'text-rose-400', icon: Zap },
+                                { label: 'AI Interviews', val: selectedUser?.stats?.interviews || 0, color: 'text-indigo-400', icon: BrainCircuit }
+                            ].map((stat, i) => (
+                                <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-xl flex items-center justify-between group/modal-stat hover:bg-white/[0.08] transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("p-1.5 rounded-lg bg-white/5", stat.color)}>
+                                            <stat.icon className="w-3.5 h-3.5" />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{stat.label}</span>
+                                    </div>
+                                    <span className={cn("text-base font-black", stat.color)}>{stat.val}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <Button 
+                            className="w-full mt-8 bg-white text-black hover:bg-[#eeeeee] font-black rounded-2xl h-12 uppercase tracking-widest transition-all shadow-xl shadow-white/5"
+                            onClick={() => setSelectedUser(null)}
+                        >
+                            Close Analytics
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
 
 const TopCard = ({ entry, colorClass, isLarge = false }: { entry: LeaderboardEntry, rank: number, colorClass: string, isLarge?: boolean }) => {
+    const [isFlipped, setIsFlipped] = useState(false);
+
     return (
-        <Card className={cn(
-            "relative border-2 bg-gradient-to-b overflow-hidden group transition-all duration-500",
-            colorClass,
-            isLarge ? "scale-105 z-10" : "hover:scale-102"
-        )}>
-            {/* Background Icon Decoration */}
-            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] group-hover:scale-110 transition-all duration-700">
-                {entry.rank === 1 ? <Trophy className="w-32 h-32" /> : <Medal className="w-28 h-28" />}
-            </div>
+        <div 
+            className={cn(
+                "relative perspective-1000 transition-all duration-500",
+                isLarge ? "scale-105 z-10" : "hover:scale-102 h-[420px]",
+                isLarge ? "h-[480px]" : "h-[420px]"
+            )}
+            style={{ perspective: '1000px' }}
+        >
+            <div 
+                className={cn(
+                    "relative w-full h-full transition-all duration-700 preserve-3d cursor-pointer",
+                    isFlipped ? "rotate-y-180" : ""
+                )}
+                style={{ 
+                    transformStyle: 'preserve-3d',
+                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                }}
+            >
+                {/* FRONT SIDE */}
+                <Card className={cn(
+                    "absolute inset-0 backface-hidden border-2 bg-gradient-to-b overflow-hidden group",
+                    colorClass
+                )} style={{ backfaceVisibility: 'hidden' }}>
+                    {/* Background Icon Decoration */}
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] group-hover:scale-110 transition-all duration-700">
+                        {entry.rank === 1 ? <Trophy className="w-32 h-32" /> : <Medal className="w-28 h-28" />}
+                    </div>
 
-            <CardContent className={cn("p-4 flex flex-col items-center text-center", isLarge ? "pt-10 pb-6" : "pt-8 pb-5")}>
-                {/* Ranking Emblem */}
-                <div className={cn(
-                    "absolute top-3 left-3 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-white/10 shadow-lg",
-                    entry.rank === 1 ? "bg-yellow-500 text-black" : entry.rank === 2 ? "bg-slate-300 text-black border-slate-200/50" : "bg-amber-600 text-white border-amber-500/50"
-                )}>
-                    #{entry.rank}
-                </div>
+                    <CardContent className={cn("p-4 flex flex-col items-center text-center", isLarge ? "pt-10 pb-6" : "pt-8 pb-5")}>
+                        <div className={cn(
+                            "absolute top-3 left-3 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs border-2 border-white/10 shadow-lg",
+                            entry.rank === 1 ? "bg-yellow-500 text-black" : entry.rank === 2 ? "bg-slate-300 text-black border-slate-200/50" : "bg-amber-600 text-white border-amber-500/50"
+                        )}>
+                            #{entry.rank}
+                        </div>
 
-                {/* Avatar Section */}
-                <div className="relative mb-4">
-                    <div className={cn(
-                        "absolute -inset-2 rounded-full blur-md opacity-30 animate-pulse",
-                        entry.rank === 1 ? "bg-yellow-500" : entry.rank === 2 ? "bg-slate-200" : "bg-amber-600"
-                    )} />
-                    <div className={cn(
-                        "relative rounded-full border-4 border-[#111111] overflow-hidden bg-zinc-900 shadow-2xl transition-transform duration-500 group-hover:scale-105",
-                        isLarge ? "w-20 h-20" : "w-16 h-16"
-                    )}>
-                        {entry.photoURL ? (
-                            <img src={entry.photoURL} alt={entry.fullName} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                                <User className="w-10 h-10 text-muted-foreground/50" />
+                        <div className="relative mb-4">
+                            <div className={cn(
+                                "absolute -inset-2 rounded-full blur-md opacity-30 animate-pulse",
+                                entry.rank === 1 ? "bg-yellow-500" : entry.rank === 2 ? "bg-slate-200" : "bg-amber-600"
+                            )} />
+                            <div className={cn(
+                                "relative rounded-full border-4 border-[#111111] overflow-hidden bg-zinc-900 shadow-2xl transition-transform duration-500 group-hover:scale-105",
+                                isLarge ? "w-20 h-20" : "w-16 h-16"
+                            )}>
+                                {entry.photoURL ? (
+                                    <img src={entry.photoURL} alt={entry.fullName} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <User className="w-10 h-10 text-muted-foreground/50" />
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </div>
+                        </div>
 
-                {/* Name & ID */}
-                <div className="mb-4">
-                    <h3 className={cn("font-black tracking-tight text-white mb-0.5 uppercase bg-gradient-to-b from-white to-white/60 bg-clip-text", isLarge ? "text-xl" : "text-lg")}>
-                        {entry.fullName}
-                    </h3>
-                    <p className="text-[9px] text-muted-foreground font-mono tracking-widest bg-white/5 py-0.5 px-2 rounded-full w-fit mx-auto">
-                        @{entry.fullName.toLowerCase().replace(/\s+/g, '_')}
-                    </p>
-                </div>
+                        <div className="mb-4">
+                            <h3 className={cn("font-black tracking-tight text-white mb-0.5 uppercase bg-gradient-to-b from-white to-white/60 bg-clip-text", isLarge ? "text-xl" : "text-lg")}>
+                                {entry.fullName}
+                            </h3>
+                            <p className="text-[9px] text-muted-foreground font-mono tracking-widest bg-white/5 py-0.5 px-2 rounded-full w-fit mx-auto">
+                                @{entry.fullName.toLowerCase().replace(/\s+/g, '_')}
+                            </p>
+                        </div>
 
-                {/* Score Panel */}
-                <div className="w-full bg-black/40 rounded-xl p-3 border border-white/5 mb-4 backdrop-blur-sm group-hover:border-white/10 transition-colors">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Global Pts</span>
-                        <Zap className="w-3 h-3 text-primary fill-primary/20" />
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                        <span className={cn("font-black text-white", isLarge ? "text-2xl" : "text-xl")}>{entry.score.toLocaleString()}</span>
-                        <span className="text-[10px] font-bold text-primary">XP</span>
-                    </div>
-                </div>
+                        <div className="w-full bg-black/40 rounded-xl p-3 border border-white/5 mb-4 backdrop-blur-sm group-hover:border-white/10 transition-colors">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Global Pts</span>
+                                <Zap className="w-3 h-3 text-primary fill-primary/20" />
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                                <span className={cn("font-black text-white", isLarge ? "text-2xl" : "text-xl")}>{entry.score.toLocaleString()}</span>
+                                <span className="text-[10px] font-bold text-primary">XP</span>
+                            </div>
+                        </div>
 
-                {/* Stats Row */}
-                <div className="grid grid-cols-2 gap-3 w-full">
-                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col items-center group-hover:bg-white/[0.04] transition-colors">
-                        <Target className="w-4 h-4 text-green-400 mb-1.5 opacity-80" />
-                        <span className="text-sm font-black text-white">{entry.accuracy}%</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest pt-0.5">Accuracy</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col items-center group-hover:bg-white/[0.04] transition-colors">
-                        <BarChart3 className="w-4 h-4 text-primary mb-1.5 opacity-80" />
-                        <span className="text-sm font-black text-white">{entry.problemsSolved}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest pt-0.5">Solved</span>
-                    </div>
-                </div>
+                        <div className="grid grid-cols-2 gap-3 w-full">
+                            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col items-center group-hover:bg-white/[0.04] transition-colors">
+                                <Target className="w-4 h-4 text-green-400 mb-1.5 opacity-80" />
+                                <span className="text-sm font-black text-white">{entry.accuracy}%</span>
+                                <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest pt-0.5">Accuracy</span>
+                            </div>
+                            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col items-center group-hover:bg-white/[0.04] transition-colors">
+                                <BarChart3 className="w-4 h-4 text-primary mb-1.5 opacity-80" />
+                                <span className="text-sm font-black text-white">{entry.problemsSolved}</span>
+                                <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest pt-0.5">Activity</span>
+                            </div>
+                        </div>
 
-                {/* Profile Link */}
-                <div className="flex justify-center mt-6 w-full">
-                    <Button className="w-32 bg-white text-black hover:bg-[#eeeeee] font-black rounded-lg text-[9px] h-8 px-3 uppercase tracking-widest shadow-[0_4px_14px_0_rgba(255,255,255,0.1)] transition-all">
-                        View Stats
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                        <div className="flex justify-center mt-6 w-full">
+                            <Button 
+                                onClick={(e) => { e.stopPropagation(); setIsFlipped(true); }}
+                                className="w-32 bg-white text-black hover:bg-[#eeeeee] font-black rounded-lg text-[9px] h-8 px-3 uppercase tracking-widest shadow-[0_4px_14px_0_rgba(255,255,255,0.1)] transition-all"
+                            >
+                                View Stats
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* BACK SIDE */}
+                <Card 
+                    className={cn(
+                        "absolute inset-0 backface-hidden border-2 bg-[#111111] overflow-hidden p-6 flex flex-col items-center",
+                        colorClass
+                    )} 
+                    style={{ 
+                        backfaceVisibility: 'hidden',
+                        transform: 'rotateY(180deg)'
+                    }}
+                >
+                    <div className="w-full flex justify-between items-center mb-6">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Detailed Analytics</span>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 rounded-full hover:bg-white/10"
+                            onClick={(e) => { e.stopPropagation(); setIsFlipped(false); }}
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+
+                    <div className="space-y-4 w-full">
+                        {[
+                            { label: 'Easy Solved', val: entry.stats?.easy || 0, color: 'text-teal-400', icon: CheckCircle2 },
+                            { label: 'Medium Solved', val: entry.stats?.medium || 0, color: 'text-amber-400', icon: TrendingUp },
+                            { label: 'Hard Solved', val: entry.stats?.hard || 0, color: 'text-rose-400', icon: Zap },
+                            { label: 'AI Interviews', val: entry.stats?.interviews || 0, color: 'text-indigo-400', icon: BrainCircuit }
+                        ].map((stat, i) => (
+                            <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-2xl flex items-center justify-between group/stat hover:bg-white/10 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("p-2 rounded-lg bg-white/5", stat.color)}>
+                                        <stat.icon className="w-4 h-4" />
+                                    </div>
+                                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{stat.label}</span>
+                                </div>
+                                <span className={cn("text-lg font-black", stat.color)}>{stat.val}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-auto w-full pt-6">
+                        <Button 
+                            className="w-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 font-black rounded-xl text-[10px] h-10 uppercase tracking-widest transition-all"
+                            onClick={(e) => { e.stopPropagation(); setIsFlipped(false); }}
+                        >
+                            Back to Profile
+                        </Button>
+                    </div>
+                </Card>
+            </div>
+        </div>
     );
 };
 

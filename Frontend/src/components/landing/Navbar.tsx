@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Code2, Menu, X, LogOut, User as UserIcon, Lock, Trophy, Layout, BrainCircuit, Users, BarChart3, Target, ChevronDown, Calendar, History, Flame } from "lucide-react";
+import { Code2, Menu, X, LogOut, User as UserIcon, Lock, Trophy, Layout, Users, BarChart3, Target, ChevronDown, Calendar, History, Flame } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetHeader } from "@/components/ui/sheet";
@@ -56,7 +56,6 @@ const Navbar = ({
       ]
     },
     { name: "Companies", href: "/companies", icon: Target, tooltip: "Prepare company-specific questions, OA patterns & mock interviews" },
-    { name: "Mock OA", href: "/mock-oa", icon: BrainCircuit },
     { name: "Interview", href: "/interview", icon: Users, isNew: true },
     { name: "Leaderboard", href: "/leaderboard", icon: BarChart3 },
   ];

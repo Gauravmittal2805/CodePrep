@@ -14,7 +14,6 @@ import {
     PlusCircle, Search, Settings, ShieldAlert, BarChart3, Users, FileText, CheckCircle,
     Code, Mic, Play
 } from "lucide-react";
-
 import QuestionGeneratorPanel from "./QuestionGeneratorPanel";
 
 interface AdminInterviewPanelProps {
@@ -601,10 +600,6 @@ export default function AdminInterviewPanel({ activeView }: AdminInterviewPanelP
                             <Settings className="w-4 h-4 mr-2" />
                             AI Configuration
                         </TabsTrigger>
-                        <TabsTrigger value="analytics" className="data-[state=active]:bg-primary data-[state=active]:text-foreground">
-                            <BarChart3 className="w-4 h-4 mr-2" />
-                            Interview Analytics
-                        </TabsTrigger>
                     </TabsList>
 
                     {/* Question Bank Tab */}
@@ -671,26 +666,7 @@ export default function AdminInterviewPanel({ activeView }: AdminInterviewPanelP
                         </Card>
                     </TabsContent>
 
-                    {/* Analytics Tab */}
-                    <TabsContent value="analytics" className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {[
-                                { label: "Total Interviews", value: "1,248", icon: Users, color: "text-blue-500" },
-                                { label: "Avg. Pass Rate", value: "68%", icon: CheckCircle, color: "text-green-500" },
-                                { label: "Flagged Sessions", value: "12", icon: ShieldAlert, color: "text-red-500" },
-                            ].map((stat, i) => (
-                                <Card key={i} className="bg-[#111111] border-border/40">
-                                    <CardContent className="pt-6 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                                            <h3 className="text-2xl font-bold mt-1">{stat.value}</h3>
-                                        </div>
-                                        <stat.icon className={`w-8 h-8 ${stat.color} opacity-20`} />
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </TabsContent>
+
                 </Tabs>
             )}
         </div>

@@ -11,6 +11,7 @@ import {
     ArrowRight,
 
 
+    ChevronRight,
     Briefcase,
     Timer,
     Code,
@@ -108,6 +109,44 @@ const PracticePlanRenderer = ({ plan }: PracticePlanRendererProps) => {
     );
 };
 
+const GapAnalysisItem = ({ item }: { item: any }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div 
+            className={cn(
+                "rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all cursor-pointer overflow-hidden",
+                isOpen ? "ring-1 ring-primary/30" : ""
+            )}
+            onClick={() => setIsOpen(!isOpen)}
+        >
+            <div className="flex items-start gap-3 p-4">
+                {item.type === "negative" ? (
+                    <XCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                ) : (
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-white">{item.text}</span>
+                        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform duration-300", isOpen ? "rotate-90" : "")} />
+                    </div>
+                </div>
+            </div>
+            
+            {isOpen && (
+                <div className="px-4 pb-4 pt-1 animate-in slide-in-from-top-2 duration-300">
+                    <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
+                        <p className="text-xs text-primary/90 leading-relaxed font-medium">
+                            <span className="font-black mr-1">💡 Suggestion:</span>
+                            {item.suggestion}
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const CompanyDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -118,6 +157,7 @@ const CompanyDetail = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
     const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
+    const [availableMockOA, setAvailableMockOA] = useState<any>(null);
 
     const handleGeneratePlan = async () => {
         if (!id) return;
@@ -168,6 +208,26 @@ const CompanyDetail = () => {
                 ]);
                 setCompany(companyData);
                 setProblems(problemsData);
+
+                // Fetch available Mock OAs to see if one exists for this company
+                try {
+                    const token = await auth.currentUser?.getIdToken();
+                    if (token) {
+                        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/mockoa/list`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            const match = result.data.find((oa: any) => 
+                                oa.company.toLowerCase() === companyData.name.toLowerCase() ||
+                                oa.companyId === companyData.companyId
+                            );
+                            setAvailableMockOA(match);
+                        }
+                    }
+                } catch (oaError) {
+                    console.error("Failed to fetch mock OAs:", oaError);
+                }
             } catch (error) {
                 console.error("Failed to fetch company data:", error);
             } finally {
@@ -182,13 +242,6 @@ const CompanyDetail = () => {
     const solvedCount = problems.filter(p => p.userStatus?.status === 'solved').length;
     const totalCount = problems.length; // Removed default fallback
     const readiness = totalCount > 0 ? Math.round((solvedCount / totalCount) * 100) : 0;
-
-    const mockUserData = {
-        weakness: [
-            { id: 1, text: solvedCount === 0 ? "No practice data yet" : "Keep solving to improve", type: solvedCount === 0 ? "negative" : "positive" },
-            { id: 2, text: "Patterns not analyzed", type: "negative" },
-        ]
-    };
 
     if (isLoading) {
         return (
@@ -530,7 +583,10 @@ const CompanyDetail = () => {
                                     )}
                                 </div>
                                 <div className="px-6 pt-6">
-                                    <Button className="w-full h-11 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-xl font-bold uppercase tracking-tight text-xs">
+                                    <Button 
+                                        onClick={() => navigate("/problems")}
+                                        className="w-full h-11 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-xl font-bold uppercase tracking-tight text-xs"
+                                    >
                                         Explore All Problems
                                     </Button>
                                 </div>
@@ -581,9 +637,18 @@ const CompanyDetail = () => {
                                         </div>
                                     )}
                                 </div>
-                                <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-[11px] rounded-xl shadow-[0_8px_30px_rgba(45,212,191,0.2)] gap-2 transition-all hover:scale-[1.02] active:scale-95">
+                                <Button 
+                                    onClick={() => {
+                                        if (availableMockOA) {
+                                            navigate(`/mockoa/attempt/${availableMockOA._id}`);
+                                        } else {
+                                            toast.error(`Mock OA for ${company.name} is currently not available.`);
+                                        }
+                                    }}
+                                    className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-[11px] rounded-xl shadow-[0_8px_30px_rgba(45,212,191,0.2)] gap-2 transition-all hover:scale-[1.02] active:scale-95"
+                                >
                                     <Play className="w-4 h-4 fill-current" />
-                                    Take Mock OA Now
+                                    {availableMockOA ? "Take Mock OA Now" : "Currently Not Available"}
                                 </Button>
                             </CardContent>
                         </Card>
@@ -597,24 +662,25 @@ const CompanyDetail = () => {
                                 </CardTitle>
                                 <CardDescription>Why you're not ready for {company.name} yet</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-3">
-                                {mockUserData.weakness.map((item) => (
-                                    <div key={item.id} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
-                                        {item.type === "negative" ? (
-                                            <XCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                                        ) : (
-                                            <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                                        )}
-                                        <span className={cn(
-                                            "text-sm font-medium",
-                                            item.type === "negative" ? "text-white" : "text-muted-foreground"
-                                        )}>{item.text}</span>
-                                    </div>
+                            <CardContent className="space-y-3 pb-6">
+                                {[
+                                    { 
+                                        id: 1, 
+                                        text: solvedCount === 0 ? "No practice data yet" : "Topic coverage is low", 
+                                        type: solvedCount === 0 ? "negative" : "negative",
+                                        suggestion: solvedCount === 0 
+                                            ? "Start with the 'Must-Do Problems' on the left. AI recommends solving at least 10 high-frequency problems to establish your baseline."
+                                            : `You have only solved ${solvedCount} problems. To reach the interview threshold for ${company.name}, aim for at least 25 problems across Arrays, DP, and Graphs.`
+                                    },
+                                    { 
+                                        id: 2, 
+                                        text: "Patterns not analyzed", 
+                                        type: "negative",
+                                        suggestion: "Our AI hasn't seen enough of your coding style. Solve 5 more problems using our editor to unlock personalized pattern analysis and time-complexity tracking."
+                                    },
+                                ].map((item) => (
+                                    <GapAnalysisItem key={item.id} item={item} />
                                 ))}
-                                <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-white mt-4 gap-2 h-auto p-2">
-                                    <HelpCircle className="w-4 h-4" />
-                                    How to improve these?
-                                </Button>
                             </CardContent>
                         </Card>
                     </div>

@@ -304,7 +304,8 @@ export default function InterviewRoom() {
                             ? "This was the last question. Briefly acknowledge the user's answer and conclude the interview professionally. Say: 'That's all for today. You've completed the interview. Best of luck!'"
                             : `Acknowledge the user's answer briefly (under 10 words) and then ask the EXACT next question which is Question #${nextQuestionIndex + 1} from our list: "${nextQuestion}". DO NOT repeat previous questions.`
                     }
-                ]
+                ],
+                type: interviewType
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });

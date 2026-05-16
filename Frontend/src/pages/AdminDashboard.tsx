@@ -45,7 +45,6 @@ import {
     Cpu,
     Zap,
     Server,
-    HardDrive,
     XCircle,
     Map
 } from "lucide-react";
@@ -90,6 +89,13 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     ResponsiveContainer,
     AreaChart,
     Area,
@@ -128,7 +134,6 @@ const AdminDashboard = () => {
     const [isCleaningUp, setIsCleaningUp] = useState(false);
     const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
     const [systemHealthData, setSystemHealthData] = useState<any>(null);
-    const [isLoadingHealth, setIsLoadingHealth] = useState(false);
     const [isDiagnosing, setIsDiagnosing] = useState(false);
     const [diagnosisResults, setDiagnosisResults] = useState<any[]>([]);
     const [companiesData, setCompaniesData] = useState<any[]>([]);
@@ -149,12 +154,18 @@ const AdminDashboard = () => {
     const [isAddingCompany, setIsAddingCompany] = useState(false);
     const [mockOAsData, setMockOAsData] = useState<any[]>([]);
     const [isLoadingMockOAs, setIsLoadingMockOAs] = useState(false);
+    const [submissionsData, setSubmissionsData] = useState<any[]>([]);
+    const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+    const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+    const [contestsData, setContestsData] = useState<any[]>([]);
+    const [selectedContestId, setSelectedContestId] = useState<string>("");
+    const [contestLeaderboardData, setContestLeaderboardData] = useState<any[]>([]);
+    const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
 
     const { user } = useAuth();
 
     const fetchSystemHealth = async () => {
         if (!user) return;
-        setIsLoadingHealth(true);
         try {
             const token = await user.getIdToken();
             const response = await fetch('http://localhost:5001/api/admin/system/health', {
@@ -171,8 +182,6 @@ const AdminDashboard = () => {
             }
         } catch (error) {
             console.error("Health fetch error:", error);
-        } finally {
-            setIsLoadingHealth(false);
         }
     };
 
@@ -492,6 +501,30 @@ const AdminDashboard = () => {
         }
     };
 
+    const fetchSubmissions = async (verdict?: string) => {
+        if (!user) return;
+        setIsLoadingSubmissions(true);
+        try {
+            const token = await user.getIdToken();
+            let url = 'http://localhost:5001/api/admin/submissions?limit=50';
+            if (verdict) url += `&verdict=${verdict}`;
+            
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    setSubmissionsData(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch admin submissions:', error);
+        } finally {
+            setIsLoadingSubmissions(false);
+        }
+    };
+
     const handleAddCompany = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
@@ -577,6 +610,68 @@ const AdminDashboard = () => {
         fetchStats();
     }, [user]);
 
+    const fetchContests = async () => {
+        if (!user) return;
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/contests', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    setContestsData(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch contests:', error);
+        } finally {
+            // Loading done
+        }
+    };
+
+    const fetchContestSubmissions = async (contestId: string) => {
+        if (!user || !contestId) return;
+        setIsLoadingSubmissions(true);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`http://localhost:5001/api/admin/submissions?limit=100&contestId=${contestId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    setSubmissionsData(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch contest submissions:', error);
+        } finally {
+            setIsLoadingSubmissions(false);
+        }
+    };
+
+    const fetchContestLeaderboard = async (contestId: string) => {
+        if (!user || !contestId) return;
+        setIsLoadingLeaderboard(true);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`http://localhost:5001/api/admin/contests/${contestId}/leaderboard`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    setContestLeaderboardData(result.data);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch contest leaderboard:', error);
+        } finally {
+            setIsLoadingLeaderboard(false);
+        }
+    };
+
     useEffect(() => {
         if (activeItem === "All Users") {
             fetchUsers();
@@ -590,8 +685,17 @@ const AdminDashboard = () => {
             fetchCompanies();
         } else if (activeItem === "OA Templates") {
             fetchMockOAs();
+        } else if (activeItem === "All Submissions" || activeItem === "Failed Submissions" || activeItem === "Runtime Errors") {
+            const verdict = activeItem === "Failed Submissions" ? "FAILED" : (activeItem === "Runtime Errors" ? "RE" : undefined);
+            fetchSubmissions(verdict);
+        } else if (activeItem === "Contest Submissions" || activeItem === "Contest Leaderboard" || activeItem === "All Contests") {
+            fetchContests();
+            if (selectedContestId) {
+                if (activeItem === "Contest Submissions") fetchContestSubmissions(selectedContestId);
+                if (activeItem === "Contest Leaderboard") fetchContestLeaderboard(selectedContestId);
+            }
         }
-    }, [activeItem, user]);
+    }, [activeItem, user, selectedContestId]);
 
     const toggleSection = (section: string) => {
         setExpandedSections(prev =>
@@ -631,20 +735,10 @@ const AdminDashboard = () => {
             subItems: ["Create Mock OA", "OA Templates", "User Attempts", "OA Analytics"]
         },
         {
-            title: "Interview Lobby",
-            icon: MonitorSpeaker,
-            subItems: ["Create Interview Rooms", "Interview Schedules", "Interviewers Management", "Interview Feedback", "Interview Leaderboard"],
-            tag: "PRO"
-        },
-        {
             title: "Submissions",
             icon: Send,
+            tag: "NEW",
             subItems: ["All Submissions", "Failed Submissions", "Runtime Errors"]
-        },
-        {
-            title: "Plagiarism Detection",
-            icon: ShieldAlert,
-            subItems: ["Plagiarism Reports", "Similarity Scores", "Flagged Users"]
         },
     ];
 
@@ -1841,6 +1935,8 @@ const AdminDashboard = () => {
                             </div>
                         )}
 
+
+
                         {/* All Companies Section */}
                         {activeItem === "All Companies" && (
                             <div className="space-y-8 animate-in fade-in duration-500">
@@ -2790,6 +2886,399 @@ const AdminDashboard = () => {
                                         </div>
                                     </CardContent>
                                 </Card>
+                            </div>
+                        )}
+
+                        {(activeItem === "All Submissions" || activeItem === "Failed Submissions" || activeItem === "Runtime Errors") && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-3xl font-bold tracking-tight text-primary">
+                                            {activeItem === "Failed Submissions" ? "Failed Submissions" : 
+                                             activeItem === "Runtime Errors" ? "Runtime Errors" : "All Submissions"}
+                                        </h2>
+                                        <p className="text-muted-foreground mt-1">
+                                            {activeItem === "Failed Submissions" ? "Code submissions that failed validation or test cases" : 
+                                             activeItem === "Runtime Errors" ? "Code submissions that encountered execution errors" : 
+                                             "Real-time code submissions from all users across the platform"}
+                                        </p>
+                                    </div>
+                                    <Button 
+                                        onClick={() => {
+                                            const verdict = activeItem === "Failed Submissions" ? "FAILED" : (activeItem === "Runtime Errors" ? "RE" : undefined);
+                                            fetchSubmissions(verdict);
+                                        }} 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="gap-2"
+                                    >
+                                        <RefreshCcw className={cn("w-4 h-4", isLoadingSubmissions && "animate-spin")} />
+                                        Refresh {activeItem}
+                                    </Button>
+                                </div>
+
+                                <Card className="bg-[#111111] border-border/40 overflow-hidden shadow-2xl">
+                                    <CardContent className="p-0">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left text-sm">
+                                                <thead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-white/[0.02] border-b border-border/10">
+                                                    <tr>
+                                                        <th className="px-6 py-4">User</th>
+                                                        <th className="px-6 py-4">Problem</th>
+                                                        <th className="px-6 py-4">Verdict</th>
+                                                        <th className="px-6 py-4">Language</th>
+                                                        <th className="px-6 py-4">Time</th>
+                                                        <th className="px-6 py-4 text-right">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/[0.05]">
+                                                    {isLoadingSubmissions ? (
+                                                        <tr>
+                                                            <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                <div className="flex flex-col items-center gap-2">
+                                                                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                                                    <span>Fetching submissions...</span>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ) : submissionsData.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                No submissions found in the database.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        submissionsData.map((sub) => (
+                                                            <tr key={sub._id} className="hover:bg-white/[0.01] transition-colors group">
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                                                                            {sub.user?.photoURL ? (
+                                                                                <img src={sub.user.photoURL} alt={sub.user.fullName} className="w-full h-full object-cover" />
+                                                                            ) : (
+                                                                                sub.user?.fullName?.charAt(0) || 'U'
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-bold text-white/80">{sub.user?.fullName}</span>
+                                                                            <span className="text-[10px] text-muted-foreground/60">{sub.user?.email}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium text-white">{sub.problem?.title || sub.problemIdentifier}</span>
+                                                                        <Badge variant="outline" className="w-fit text-[8px] h-4 mt-1 px-1 border-white/10 text-muted-foreground">
+                                                                            {sub.problem?.difficulty || 'Medium'}
+                                                                        </Badge>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <Badge className={cn(
+                                                                        "text-[10px] font-bold border-0 px-2 h-6",
+                                                                        (sub.verdict === 'AC' || sub.verdict === 'Accepted') ? "bg-green-500/10 text-green-500" :
+                                                                            sub.verdict === 'TLE' ? "bg-amber-500/10 text-amber-500" : "bg-red-500/10 text-red-500"
+                                                                    )}>
+                                                                        {sub.verdict}
+                                                                    </Badge>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <span className="text-[10px] font-mono text-muted-foreground uppercase">{sub.language}</span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-xs text-muted-foreground/70">
+                                                                    {new Date(sub.createdAt).toLocaleString()}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 text-[10px] uppercase font-bold hover:bg-primary/10 hover:text-primary"
+                                                                        onClick={() => setSelectedSubmission(sub)}
+                                                                    >
+                                                                        View Code
+                                                                    </Button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Submission Code Modal */}
+                                <Dialog open={!!selectedSubmission} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
+                                    <DialogContent className="max-w-4xl max-h-[80vh] bg-[#0a0a0a] border-border/40 overflow-hidden flex flex-col p-0">
+                                        <DialogHeader className="p-6 border-b border-border/10">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <DialogTitle className="text-xl font-bold text-primary flex items-center gap-3">
+                                                        Submission Details
+                                                        <Badge variant="outline" className={cn(
+                                                            "text-[10px] uppercase font-bold px-2",
+                                                            (selectedSubmission?.verdict === 'AC' || selectedSubmission?.verdict === 'Accepted') ? "border-green-500/50 text-green-500" : "border-red-500/50 text-red-500"
+                                                        )}>
+                                                            {selectedSubmission?.verdict}
+                                                        </Badge>
+                                                    </DialogTitle>
+                                                    <DialogDescription className="text-xs text-muted-foreground">
+                                                        Submitted by <span className="text-white font-medium">{selectedSubmission?.user?.fullName}</span> for <span className="text-white font-medium">{selectedSubmission?.problem?.title}</span>
+                                                    </DialogDescription>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Language</div>
+                                                    <div className="text-sm font-mono text-primary font-bold uppercase">{selectedSubmission?.language}</div>
+                                                </div>
+                                            </div>
+                                        </DialogHeader>
+                                        <div className="flex-1 overflow-auto p-0 bg-black/40">
+                                            <div className="relative">
+                                                <div className="absolute left-0 top-0 bottom-0 w-12 bg-white/[0.03] border-r border-white/5 flex flex-col items-center py-4 text-[10px] font-mono text-muted-foreground/40 select-none">
+                                                    {selectedSubmission?.code?.split('\n').map((_: string, i: number) => (
+                                                        <div key={i} className="h-5 flex items-center">{i + 1}</div>
+                                                    ))}
+                                                </div>
+                                                <pre className="p-4 pl-16 text-sm font-mono text-white/90 leading-5 overflow-visible whitespace-pre">
+                                                    <code>{selectedSubmission?.code}</code>
+                                                </pre>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 border-t border-border/10 bg-black/60 flex items-center justify-between">
+                                            <div className="flex items-center gap-6 text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>{selectedSubmission ? new Date(selectedSubmission.createdAt).toLocaleString() : ''}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Activity className="w-3 h-3" />
+                                                    <span>{selectedSubmission?.executionTime || 0}ms</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Cpu className="w-3 h-3" />
+                                                    <span>{selectedSubmission?.memory ? (selectedSubmission.memory / 1024).toFixed(1) + ' KB' : 'N/A'}</span>
+                                                </div>
+                                            </div>
+                                            <Button variant="outline" size="sm" className="h-8 gap-2 border-primary/20 hover:border-primary/50 text-primary" onClick={() => {
+                                                navigator.clipboard.writeText(selectedSubmission?.code || '');
+                                                toast.success("Code copied to clipboard");
+                                            }}>
+                                                <ClipboardList className="w-3.5 h-3.5" />
+                                                Copy Code
+                                            </Button>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+                        )}
+
+                        {(activeItem === "Contest Submissions" || activeItem === "Contest Leaderboard") && (
+                            <div className="space-y-8 animate-in fade-in duration-500">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-3xl font-bold tracking-tight text-primary">{activeItem}</h2>
+                                        <p className="text-muted-foreground mt-1">View activity and rankings for platform contests</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Select value={selectedContestId} onValueChange={setSelectedContestId}>
+                                            <SelectTrigger className="w-[280px] bg-black/40 border-border/40">
+                                                <SelectValue placeholder="Select a contest to view" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-[#111111] border-border/40">
+                                                {contestsData.map(contest => (
+                                                    <SelectItem key={contest._id} value={contest._id}>
+                                                        {contest.title}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button 
+                                            onClick={() => {
+                                                if (activeItem === "Contest Submissions") fetchContestSubmissions(selectedContestId);
+                                                else fetchContestLeaderboard(selectedContestId);
+                                            }} 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="gap-2"
+                                            disabled={!selectedContestId}
+                                        >
+                                            <RefreshCcw className={cn("w-4 h-4", (isLoadingSubmissions || isLoadingLeaderboard) && "animate-spin")} />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {!selectedContestId ? (
+                                    <Card className="bg-[#111111] border-dashed border-border/40 py-20">
+                                        <CardContent className="flex flex-col items-center justify-center text-muted-foreground">
+                                            <Trophy className="w-12 h-12 mb-4 opacity-20" />
+                                            <p>Please select a contest from the dropdown to view its {activeItem === "Contest Submissions" ? "submissions" : "leaderboard"}</p>
+                                        </CardContent>
+                                    </Card>
+                                ) : activeItem === "Contest Submissions" ? (
+                                    <Card className="bg-[#111111] border-border/40 overflow-hidden shadow-2xl">
+                                        <CardContent className="p-0">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left text-sm">
+                                                    <thead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-white/[0.02] border-b border-border/10">
+                                                        <tr>
+                                                            <th className="px-6 py-4">Submission ID</th>
+                                                            <th className="px-6 py-4">User</th>
+                                                            <th className="px-6 py-4">Problem</th>
+                                                            <th className="px-6 py-4">Status</th>
+                                                            <th className="px-6 py-4">Time</th>
+                                                            <th className="px-6 py-4 text-right">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-white/[0.05]">
+                                                        {isLoadingSubmissions ? (
+                                                            <tr>
+                                                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                                                        <span>Loading submissions...</span>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ) : submissionsData.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                    No submissions found for this contest.
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            submissionsData.map((sub) => (
+                                                                <tr key={sub._id} className="hover:bg-white/[0.01] transition-colors group">
+                                                                    <td className="px-6 py-4 font-mono text-[10px] text-muted-foreground">
+                                                                        #{sub._id.slice(-8).toUpperCase()}
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">
+                                                                                {sub.user?.fullName?.[0]}
+                                                                            </div>
+                                                                            <span className="font-medium">{sub.user?.fullName}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">{sub.problem?.title}</span>
+                                                                            <span className="text-[10px] text-muted-foreground uppercase">{sub.language}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <Badge variant="outline" className={cn(
+                                                                            "text-[10px] uppercase font-bold px-2",
+                                                                            (sub.verdict === 'AC' || sub.verdict === 'Accepted') ? "border-green-500/50 text-green-500 bg-green-500/5" : "border-red-500/50 text-red-500 bg-red-500/5"
+                                                                        )}>
+                                                                            {sub.verdict}
+                                                                        </Badge>
+                                                                    </td>
+                                                                    <td className="px-6 py-4 text-xs text-muted-foreground">
+                                                                        {new Date(sub.createdAt).toLocaleString()}
+                                                                    </td>
+                                                                    <td className="px-6 py-4 text-right">
+                                                                        <Button 
+                                                                            onClick={() => setSelectedSubmission(sub)} 
+                                                                            variant="ghost" 
+                                                                            size="sm" 
+                                                                            className="h-7 text-[10px] font-bold uppercase hover:text-primary"
+                                                                        >
+                                                                            View Code
+                                                                        </Button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ) : (
+                                    <Card className="bg-[#111111] border-border/40 overflow-hidden shadow-2xl">
+                                        <CardContent className="p-0">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left text-sm">
+                                                    <thead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-primary/[0.02] border-b border-border/10">
+                                                        <tr>
+                                                            <th className="px-6 py-4 w-16">Rank</th>
+                                                            <th className="px-6 py-4">Participant</th>
+                                                            <th className="px-6 py-4">Score</th>
+                                                            <th className="px-6 py-4">Solved</th>
+                                                            <th className="px-6 py-4">Last Submission</th>
+                                                            <th className="px-6 py-4 text-right">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-white/[0.05]">
+                                                        {isLoadingLeaderboard ? (
+                                                            <tr>
+                                                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                                                        <span>Calculating leaderboard...</span>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ) : contestLeaderboardData.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                    No data available for this contest leaderboard.
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            contestLeaderboardData.map((entry, idx) => (
+                                                                <tr key={entry.uid} className="hover:bg-white/[0.01] transition-colors group">
+                                                                    <td className="px-6 py-4">
+                                                                        <div className={cn(
+                                                                            "w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs",
+                                                                            idx === 0 ? "bg-amber-500/20 text-amber-500 border border-amber-500/30" :
+                                                                            idx === 1 ? "bg-slate-300/20 text-slate-300 border border-slate-300/30" :
+                                                                            idx === 2 ? "bg-orange-400/20 text-orange-400 border border-orange-400/30" :
+                                                                            "bg-white/5 text-muted-foreground border border-white/10"
+                                                                        )}>
+                                                                            {idx + 1}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                                                                                {entry.user?.photoURL ? (
+                                                                                    <img src={entry.user.photoURL} alt="" className="w-full h-full object-cover" />
+                                                                                ) : (
+                                                                                    <span className="text-xs font-bold text-primary">{entry.user?.fullName?.[0]}</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="flex flex-col">
+                                                                                <span className="font-bold">{entry.user?.fullName}</span>
+                                                                                <span className="text-[10px] text-muted-foreground/60">{entry.user?.email}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <span className="text-lg font-bold text-primary">{entry.totalScore}</span>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                                                                            {entry.solvedCount} Problems
+                                                                        </Badge>
+                                                                    </td>
+                                                                    <td className="px-6 py-4 text-xs text-muted-foreground">
+                                                                        {new Date(entry.lastSubmissionTime).toLocaleTimeString()}
+                                                                    </td>
+                                                                    <td className="px-6 py-4 text-right">
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                                                            <Info className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </div>
                         )}
 

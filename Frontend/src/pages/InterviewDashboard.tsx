@@ -58,14 +58,6 @@ const InterviewDashboard = () => {
                             <BarChart2 className="w-4 h-4 mr-2" />
                             Detailed Analytics
                         </TabsTrigger>
-                        <TabsTrigger value="insights" className="rounded-full px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                            <BookOpen className="w-4 h-4 mr-2" />
-                            Resume Insights
-                        </TabsTrigger>
-                        <TabsTrigger value="plan" className="rounded-full px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                            <User className="w-4 h-4 mr-2" />
-                            Improvement Plan
-                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="lobby" className="animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
@@ -78,22 +70,6 @@ const InterviewDashboard = () => {
 
                     <TabsContent value="analytics" className="animate-in fade-in-50 duration-500 slide-in-from-bottom-2">
                         <InterviewAnalytics />
-                    </TabsContent>
-
-                    <TabsContent value="insights">
-                        <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border/50 rounded-xl bg-secondary/10">
-                            <BookOpen className="w-12 h-12 text-muted-foreground mb-4" />
-                            <h3 className="text-xl font-medium">Resume Analysis Coming Soon</h3>
-                            <p className="text-muted-foreground max-w-md mt-2">Our AI is learning to create personalized question banks based on your resume keywords.</p>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="plan">
-                        <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border/50 rounded-xl bg-secondary/10">
-                            <User className="w-12 h-12 text-muted-foreground mb-4" />
-                            <h3 className="text-xl font-medium">Personalized Plan Coming Soon</h3>
-                            <p className="text-muted-foreground max-w-md mt-2">Get a custom roadmap to crack your dream company based on your interview performance.</p>
-                        </div>
                     </TabsContent>
                 </Tabs>
             </div>

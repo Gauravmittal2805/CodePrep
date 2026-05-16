@@ -323,24 +323,6 @@ export default function InterviewLobby() {
                                             <CardTitle>Session Overview</CardTitle>
                                             <CardDescription>Review parameters for your session.</CardDescription>
                                         </div>
-                                        <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-lg">
-                                            <Button
-                                                variant={aiMode === 'voice' ? 'secondary' : 'ghost'}
-                                                size="sm"
-                                                onClick={() => setAiMode('voice')}
-                                                className="h-7 text-xs gap-1.5"
-                                            >
-                                                <Mic className="w-3 h-3" /> Voice
-                                            </Button>
-                                            <Button
-                                                variant={aiMode === 'text' ? 'secondary' : 'ghost'}
-                                                size="sm"
-                                                onClick={() => setAiMode('text')}
-                                                className="h-7 text-xs gap-1.5"
-                                            >
-                                                <MessageSquare className="w-3 h-3" /> Text
-                                            </Button>
-                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">

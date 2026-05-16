@@ -71,6 +71,12 @@ export interface LeaderboardEntry {
     accuracy: number;
     score: number;
     rank: number;
+    stats?: {
+        easy: number;
+        medium: number;
+        hard: number;
+        interviews: number;
+    };
 }
 
 export interface TopicProgress {
@@ -98,6 +104,27 @@ export interface WeakArea {
     reason: string;
 }
 
+export interface CompanyReadiness {
+    companyId: string;
+    name: string;
+    logo: string;
+    color: string;
+    readinessScore: number;
+    focusAreas: string[];
+}
+
+export interface InterviewSession {
+    _id: string;
+    interviewType: string;
+    difficulty: string;
+    status: string;
+    createdAt: string;
+    aiReport?: {
+        overallScore: number;
+        hireRecommendation: string;
+    };
+}
+
 export interface DSAMasteryData {
     topicProgress: TopicProgress[];
     weakAreas: WeakArea[];
@@ -107,6 +134,7 @@ export interface DSAMasteryData {
         averageAccuracy: number;
     };
 }
+
 
 export const dashboardApi = {
     getStats: async (): Promise<DashboardStats> => {
@@ -137,5 +165,15 @@ export const dashboardApi = {
     getDSAMastery: async (): Promise<DSAMasteryData> => {
         const response = await api.get('/dashboard/dsa-mastery');
         return response.data;
+    },
+
+    getCompanyReadiness: async (): Promise<CompanyReadiness[]> => {
+        const response = await api.get('/dashboard/company-readiness');
+        return response.data;
+    },
+
+    getInterviewHistory: async (): Promise<InterviewSession[]> => {
+        const response = await api.get('/ai/history');
+        return response.data.data;
     },
 };

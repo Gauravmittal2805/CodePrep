@@ -1,7 +1,9 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Submission from '../models/Submission';
 import Problem from '../models/Problem';
 import User from '../models/User';
+import Company from '../models/Company';
 import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
@@ -382,6 +384,8 @@ router.get('/accepted-submissions', requireAuth, async (req, res) => {
     }
 });
 
+
+
 // Get leaderboard
 router.get('/leaderboard', requireAuth, async (req, res) => {
     try {
@@ -398,11 +402,22 @@ router.get('/leaderboard', requireAuth, async (req, res) => {
             source: { $nin: ['MOCK_OA', 'CONTEST'] }
         }, 'uid verdict problemIdentifier createdAt').sort({ createdAt: -1 });
 
-        // Group submissions by user
+        // Fetch all interview sessions to include in activity
+        const InterviewSession = mongoose.model('InterviewSession');
+        const allInterviews = await InterviewSession.find({}, 'userId createdAt aiReport').sort({ createdAt: -1 });
+
+        // Group data by user
         const userSubmissions = new Map();
         allSubmissions.forEach(s => {
             if (!userSubmissions.has(s.uid)) userSubmissions.set(s.uid, []);
             userSubmissions.get(s.uid).push(s);
+        });
+
+        const userInterviews = new Map();
+        allInterviews.forEach(i => {
+            const uid = (i as any).userId;
+            if (!userInterviews.has(uid)) userInterviews.set(uid, []);
+            userInterviews.get(uid).push(i);
         });
 
         // Fetch user basic info - Filter out users without names
@@ -481,22 +496,28 @@ router.get('/leaderboard', requireAuth, async (req, res) => {
             const improvement = last7DaysSolved - prev7DaysSolved;
             const improvementScore = Math.max(0, improvement * 15); // Only positive improvement adds points
 
+            // 5. Interview Bonus
+            const uInterviews = userInterviews.get(user.uid) || [];
+            const interviewScore = uInterviews.reduce((acc: number, inv: any) => acc + (inv.aiReport?.overallScore || 0), 0);
+
             // Final Global Score
-            const totalScore = difficultyScore + accuracyScore + consistencyScore + improvementScore;
+            const totalScore = difficultyScore + accuracyScore + consistencyScore + improvementScore + interviewScore;
 
             return {
                 uid: user.uid,
                 fullName: user.fullName || 'Anonymous',
                 photoURL: user.photoURL,
-                problemsSolved: uniqueSolvedIds.size,
+                problemsSolved: uniqueSolvedIds.size + uInterviews.length,
                 accuracy,
                 streak: currentStreak,
                 improvement: improvement > 0 ? `+${improvement}` : `${improvement}`,
                 score: totalScore,
+                totalSubmissions: subs.length + uInterviews.length,
                 stats: {
                     easy: easyCount,
                     medium: mediumCount,
-                    hard: hardCount
+                    hard: hardCount,
+                    interviews: uInterviews.length
                 }
             };
         })
@@ -526,11 +547,22 @@ router.get('/public/leaderboard', async (req, res) => {
             source: { $nin: ['MOCK_OA', 'CONTEST'] }
         }, 'uid verdict problemIdentifier createdAt').sort({ createdAt: -1 });
 
-        // Group submissions by user
+        // Fetch all interview sessions to include in activity
+        const InterviewSession = mongoose.model('InterviewSession');
+        const allInterviews = await InterviewSession.find({}, 'uid createdAt aiReport').sort({ createdAt: -1 });
+
+        // Group data by user
         const userSubmissions = new Map();
         allSubmissions.forEach(s => {
             if (!userSubmissions.has(s.uid)) userSubmissions.set(s.uid, []);
             userSubmissions.get(s.uid).push(s);
+        });
+
+        const userInterviews = new Map();
+        allInterviews.forEach(i => {
+            const uid = (i as any).uid;
+            if (!userInterviews.has(uid)) userInterviews.set(uid, []);
+            userInterviews.get(uid).push(i);
         });
 
         // Fetch user basic info - Filter out users without names
@@ -609,22 +641,28 @@ router.get('/public/leaderboard', async (req, res) => {
             const improvement = last7DaysSolved - prev7DaysSolved;
             const improvementScore = Math.max(0, improvement * 15);
 
+            // 5. Interview Bonus
+            const uInterviews = userInterviews.get(user.uid) || [];
+            const interviewScore = uInterviews.reduce((acc: number, inv: any) => acc + (inv.aiReport?.overallScore || 0), 0);
+
             // Final Global Score
-            const totalScore = difficultyScore + accuracyScore + consistencyScore + improvementScore;
+            const totalScore = difficultyScore + accuracyScore + consistencyScore + improvementScore + interviewScore;
 
             return {
                 uid: user.uid,
                 fullName: user.fullName || 'Anonymous',
                 photoURL: user.photoURL,
-                problemsSolved: uniqueSolvedIds.size,
+                problemsSolved: uniqueSolvedIds.size + uInterviews.length,
                 accuracy,
                 streak: currentStreak,
                 improvement: improvement > 0 ? `+${improvement}` : `${improvement}`,
                 score: totalScore,
+                totalSubmissions: subs.length + uInterviews.length,
                 stats: {
                     easy: easyCount,
                     medium: mediumCount,
-                    hard: hardCount
+                    hard: hardCount,
+                    interviews: uInterviews.length
                 }
             };
         })
@@ -857,6 +895,104 @@ router.get('/dsa-mastery', requireAuth, async (req, res) => {
     }
 });
 
+
+// Get company readiness data
+router.get('/company-readiness', requireAuth, async (req, res) => {
+    try {
+        const uid = req.user?.uid;
+        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+
+        // 1. Fetch all user submissions (Practice only)
+        const submissions = await Submission.find({
+            uid,
+            source: { $nin: ['MOCK_OA', 'CONTEST'] }
+        });
+
+        // 2. Fetch all problems to get topic information
+        const allProblems = await Problem.find({}, 'id slug topic tags');
+        const problemMap = new Map();
+        allProblems.forEach(p => {
+            problemMap.set(p.id, p);
+            problemMap.set(p.slug, p);
+        });
+
+        const mainTopics = [
+            'Arrays', 'Strings', 'Linked Lists', 'Trees', 'Graphs', 'Dynamic Programming',
+            'Sorting', 'Searching', 'Hash Table', 'Stack', 'Queue', 'Heap', 'Greedy',
+            'Backtracking', 'Bit Manipulation', 'Math', 'Two Pointers', 'Sliding Window'
+        ];
+
+        const topicStats = new Map();
+        mainTopics.forEach(topic => {
+            topicStats.set(topic, { attempts: 0, accepted: 0, accuracy: 0 });
+        });
+
+        submissions.forEach(sub => {
+            const problem = problemMap.get(sub.problemIdentifier);
+            if (!problem) return;
+
+            const topics = [...(problem.tags || []), ...(problem.topic || [])];
+            topics.forEach(tag => {
+                const matchedTopic = mainTopics.find(mt =>
+                    tag.toLowerCase().includes(mt.toLowerCase()) ||
+                    mt.toLowerCase().includes(tag.toLowerCase())
+                );
+
+                if (matchedTopic && topicStats.has(matchedTopic)) {
+                    const stats = topicStats.get(matchedTopic);
+                    stats.attempts++;
+                    if (sub.verdict === 'AC' || sub.verdict === 'Accepted') {
+                        stats.accepted++;
+                    }
+                }
+            });
+        });
+
+        topicStats.forEach(stats => {
+            stats.accuracy = stats.attempts > 0 ? Math.round((stats.accepted / stats.attempts) * 100) : 0;
+        });
+
+        // 3. Fetch companies
+        const companies = await Company.find().limit(6);
+
+        // 4. Calculate readiness
+        const readinessData = companies.map(company => {
+            let totalWeight = 0;
+            let weightedAccuracy = 0;
+
+            const patterns = company.pattern || [];
+            patterns.forEach(p => {
+                const stats = topicStats.get(p.topic);
+                const accuracy = stats ? stats.accuracy : 0;
+                weightedAccuracy += (accuracy * p.percentage);
+                totalWeight += p.percentage;
+            });
+
+            // If no pattern data, use a base accuracy based on overall performance
+            let score = totalWeight > 0 ? Math.round(weightedAccuracy / totalWeight) : 0;
+            
+            // Add some base score based on problems solved vs a target
+            if (score === 0 && submissions.length > 0) {
+                const overallAccuracy = submissions.length > 0 ? (submissions.filter(s => s.verdict === 'AC' || s.verdict === 'Accepted').length / submissions.length) * 100 : 0;
+                score = Math.round(overallAccuracy * 0.4); // 40% of overall accuracy as a conservative estimate
+            }
+
+            return {
+                companyId: company.companyId,
+                name: company.name,
+                logo: company.logo,
+                color: company.color,
+                readinessScore: score,
+                focusAreas: company.focusAreas.slice(0, 2)
+            };
+        });
+
+        res.json(readinessData.sort((a, b) => b.readinessScore - a.readinessScore));
+    } catch (error) {
+        console.error('Error fetching company readiness:', error);
+        res.status(500).json({ error: 'Failed to fetch company readiness' });
+    }
+});
 
 export default router;
 

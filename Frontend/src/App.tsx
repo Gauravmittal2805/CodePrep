@@ -20,6 +20,7 @@ import ContestArena from "./pages/ContestArena";
 import InterviewDashboard from "./pages/InterviewDashboard";
 import InterviewRoom from "./pages/InterviewRoom";
 import InterviewReport from "./pages/InterviewReport";
+import Profile from "./pages/Profile";
 import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/contest" element={<Contests />} />
             <Route path="/contest/:contestId/arena" element={<ContestArena />} />
             <Route path="/contest/:contestId/problem/:id" element={<ProblemEditor />} />
+            <Route path="/profile" element={<Profile />} />
 
             {/* Interview Routes */}
             <Route path="/interview" element={<InterviewDashboard />} />
