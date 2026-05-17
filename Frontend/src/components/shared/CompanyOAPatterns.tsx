@@ -1,5 +1,5 @@
 import React from "react";
-import { Company } from "@/services/companiesApi";
+import type { Company } from "@/services/companiesApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Layers, TrendingUp } from "lucide-react";
@@ -30,7 +30,7 @@ const CompanyOAPatterns: React.FC<CompanyOAPatternsProps> = ({ companies, classN
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {companies.map((company, idx) => (
+                {companies.map((company) => (
                     <Card key={company._id} className="bg-[#111111] border-white/5 hover:border-purple-500/30 transition-all group overflow-hidden relative">
                         {/* Decorative Background Glow */}
                         <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-3xl rounded-full -mr-12 -mt-12 group-hover:bg-purple-500/10 transition-colors" />
