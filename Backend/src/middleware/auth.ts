@@ -37,7 +37,20 @@ if (!admin.apps.length) {
         const serviceAccountPathEnv = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
         const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-        if (serviceAccountJson) {
+        const projectId = process.env.FIREBASE_PROJECT_ID;
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+        if (projectId && clientEmail && privateKey) {
+            admin.initializeApp({
+                credential: admin.credential.cert({
+                    projectId,
+                    clientEmail,
+                    privateKey: privateKey.replace(/\\n/g, '\n')
+                })
+            });
+            console.log('[Firebase Init] Firebase Admin successfully initialized using individual environment variables.');
+        } else if (serviceAccountJson) {
             const parsed = JSON.parse(serviceAccountJson);
             admin.initializeApp({
                 credential: admin.credential.cert(parsed)
