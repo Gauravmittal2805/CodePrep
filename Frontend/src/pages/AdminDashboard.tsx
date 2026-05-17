@@ -43,6 +43,7 @@ import {
     Info,
     Activity,
     Cpu,
+    X,
     Zap,
     Server,
     XCircle,
@@ -727,7 +728,7 @@ const AdminDashboard = () => {
         {
             title: "Contests",
             icon: Trophy,
-            subItems: ["Create Contest", "All Contests", "Invite-only Contests", "Contest Submissions", "Contest Leaderboard"]
+            subItems: ["Create Contest", "All Contests", "Contest Submissions", "Contest Leaderboard"]
         },
         {
             title: "Mock OA",
@@ -744,7 +745,22 @@ const AdminDashboard = () => {
 
 
 
-    const recentProblems: any[] = [];
+
+
+    const getTimeAgo = (dateString: string) => {
+        if (!dateString) return '';
+        const now = new Date();
+        const date = new Date(dateString);
+        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+        
+        if (diffInSeconds < 60) return `${diffInSeconds} secs ago`;
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes} mins ago`;
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours} hours ago`;
+        const diffInDays = Math.floor(diffInHours / 24);
+        return `${diffInDays} days ago`;
+    };
 
     const userAnalyticsDummy = [
         { label: "Daily Active Users (DAU)", value: "1,240", growth: "+12.5%", trend: "up" },
@@ -781,6 +797,8 @@ const AdminDashboard = () => {
     ];
 
     const [analyticsSubTab, setAnalyticsSubTab] = useState("users");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -807,9 +825,40 @@ const AdminDashboard = () => {
                 <div className="flex items-center gap-3">
                     <div className="relative hidden md:block">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <Input placeholder="Search admin panel..." className="h-8 w-64 bg-black/40 border-border/40 text-xs pl-9" />
+                        <Input 
+                            placeholder="Search admin panel..." 
+                            className="h-8 w-64 bg-black/40 border-border/40 text-xs pl-9" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <div className="absolute top-10 left-0 w-64 bg-[#111111] border border-border/40 rounded-md shadow-2xl py-1 z-50 max-h-[300px] overflow-y-auto">
+                                {(() => {
+                                    const q = searchQuery.toLowerCase();
+                                    const matched = sidebarItems.flatMap(sec => sec.subItems.filter(sub => sub.toLowerCase().includes(q)));
+                                    if (matched.length === 0) return <div className="px-3 py-2 text-xs text-muted-foreground">No matches found</div>;
+                                    return matched.map((m, i) => (
+                                        <button 
+                                            key={i} 
+                                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors"
+                                            onClick={() => {
+                                                setActiveItem(m);
+                                                setSearchQuery("");
+                                            }}
+                                        >
+                                            {m}
+                                        </button>
+                                    ));
+                                })()}
+                            </div>
+                        )}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => setIsNotificationsOpen(true)}
+                    >
                         <Bell className="w-4 h-4" />
                     </Button>
                     <div className="h-6 w-px bg-border/40 mx-1" />
@@ -824,6 +873,70 @@ const AdminDashboard = () => {
                     </Button>
                 </div>
             </header>
+
+            {/* Notification Drawer */}
+            <div className={cn(
+                "fixed inset-y-0 right-0 w-80 bg-[#111111] border-l border-border/40 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out flex flex-col",
+                isNotificationsOpen ? "translate-x-0" : "translate-x-full"
+            )}>
+                <div className="p-4 border-b border-border/40 flex items-center justify-between bg-black/20">
+                    <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-primary" />
+                        <h2 className="font-bold text-sm">Notifications</h2>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-white" onClick={() => setIsNotificationsOpen(false)}>
+                        <X className="w-4 h-4" />
+                    </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {(statsData?.adminNotifications || []).length === 0 ? (
+                        <div className="text-xs text-muted-foreground text-center py-8">No new notifications</div>
+                    ) : (
+                        (statsData?.adminNotifications || []).map((item: any, i: number) => {
+                            let Icon = Settings;
+                            let colorClass = "text-amber-500";
+                            let bgClass = "bg-amber-500/10";
+                            if (item.type === 'blocked') {
+                                Icon = AlertCircle;
+                                colorClass = "text-red-500";
+                                bgClass = "bg-red-500/10";
+                            } else if (item.type === 'admin') {
+                                Icon = Settings;
+                                colorClass = "text-amber-500";
+                                bgClass = "bg-amber-500/10";
+                            }
+
+                            return (
+                                <div key={i} className="flex gap-3 items-start border-b border-border/10 pb-3 last:border-0">
+                                    <div className={cn("mt-0.5 p-2 rounded-full", bgClass)}>
+                                        <Icon className={cn("w-3.5 h-3.5", colorClass)} />
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <p className="text-xs text-white/90 leading-tight">
+                                            <span className="font-semibold text-white">{item.user}</span> {item.action}
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                            <Clock className="w-2.5 h-2.5" />
+                                            {getTimeAgo(item.time)}
+                                        </p>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+                <div className="p-3 border-t border-border/40 bg-black/20 text-center">
+                    <Button variant="link" className="text-[10px] h-auto p-0 text-muted-foreground hover:text-primary">Mark all as read</Button>
+                </div>
+            </div>
+
+            {/* Overlay */}
+            {isNotificationsOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[50]" 
+                    onClick={() => setIsNotificationsOpen(false)}
+                />
+            )}
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Sidebar */}
@@ -1076,16 +1189,16 @@ const AdminDashboard = () => {
                                         <CardContent className="pt-4">
                                             <div className="grid grid-cols-3 gap-8">
                                                 <div className="py-2 border-r border-border/10">
-                                                    <p className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Today</p>
+                                                    <p className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Total Sessions</p>
                                                     <div className="flex items-baseline gap-2">
-                                                        <span className="text-3xl font-bold text-white">{statsData?.interviews?.today || '0'}</span>
+                                                        <span className="text-3xl font-bold text-white">{statsData?.interviews?.total || '0'}</span>
                                                         <span className="text-[10px] text-green-500 font-bold">+12%</span>
                                                     </div>
                                                 </div>
                                                 <div className="py-2 border-r border-border/10">
-                                                    <p className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Feedback Pending</p>
+                                                    <p className="text-[10px] uppercase text-muted-foreground font-bold mb-1">Top Interview Type</p>
                                                     <div className="flex items-baseline gap-2">
-                                                        <span className="text-3xl font-bold text-amber-500">{statsData?.interviews?.pendingFeedback || '0'}</span>
+                                                        <span className="text-xl font-bold text-amber-500 truncate max-w-[120px]" title={statsData?.interviews?.mostPerformedType || 'N/A'}>{statsData?.interviews?.mostPerformedType || 'N/A'}</span>
                                                     </div>
                                                 </div>
                                                 <div className="py-2">
@@ -1197,39 +1310,36 @@ const AdminDashboard = () => {
                                                     <CardTitle className="text-xl">Recent Content Updates</CardTitle>
                                                     <CardDescription>Review and manage lately added coding challenges.</CardDescription>
                                                 </div>
-                                                <Button size="sm" className="h-9 gap-2">
-                                                    <PlusCircle className="w-4 h-4" />
-                                                    Add Problem
-                                                </Button>
                                             </CardHeader>
                                             <CardContent className="pt-6">
                                                 <div className="space-y-1">
-                                                    {recentProblems.map((problem, i) => (
+                                                    {(statsData?.recentContent || []).slice(0, 5).map((item: any, i: number) => (
                                                         <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.03] transition-all group border border-transparent hover:border-border/40">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 rounded-lg bg-black/60 flex items-center justify-center font-mono text-xs text-muted-foreground border border-border/20 shadow-inner group-hover:border-primary/30 group-hover:text-primary transition-all">
-                                                                    #{problem.id}
+                                                                    #{item.id}
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-sm font-semibold group-hover:text-primary transition-colors">{problem.title}</p>
+                                                                    <p className="text-sm font-semibold group-hover:text-primary transition-colors">{item.title}</p>
                                                                     <div className="flex items-center gap-2 mt-0.5">
-                                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground/60">{problem.category}</span>
+                                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground/60">{item.type}</span>
                                                                         <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
                                                                         <span className={cn(
                                                                             "text-[10px] font-bold",
-                                                                            problem.difficulty === "Easy" ? "text-green-500" :
-                                                                                problem.difficulty === "Medium" ? "text-amber-500" : "text-red-500"
-                                                                        )}>{problem.difficulty}</span>
+                                                                            item.meta === "Easy" ? "text-green-500" :
+                                                                                item.meta === "Medium" ? "text-amber-500" : 
+                                                                                item.meta === "Hard" ? "text-red-500" : "text-blue-400"
+                                                                        )}>{item.meta}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-4">
                                                                 <Badge variant="outline" className={cn(
                                                                     "text-[10px] h-6 px-3 rounded-full border-0",
-                                                                    problem.status === "Published" ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"
+                                                                    item.status === "Published" || item.status === "ACTIVE" || item.status === "UPCOMING" ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"
                                                                 )}>
-                                                                    <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5", problem.status === "Published" ? "bg-green-500" : "bg-amber-500")} />
-                                                                    {problem.status}
+                                                                    <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5", item.status === "Published" || item.status === "ACTIVE" || item.status === "UPCOMING" ? "bg-green-500" : "bg-amber-500")} />
+                                                                    {item.status}
                                                                 </Badge>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <MoreVertical className="w-4 h-4" />
@@ -1239,12 +1349,6 @@ const AdminDashboard = () => {
                                                     ))}
                                                 </div>
                                             </CardContent>
-                                            <div className="p-4 border-t border-border/10 text-center bg-black/20">
-                                                <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10">
-                                                    View Full Problem Library
-                                                    <ChevronRight className="w-3 h-3 ml-2" />
-                                                </Button>
-                                            </div>
                                         </Card>
                                     </div>
 
@@ -1256,28 +1360,38 @@ const AdminDashboard = () => {
                                                 <CardDescription>Real-time updates from users</CardDescription>
                                             </CardHeader>
                                             <CardContent className="space-y-6">
-                                                {[
-                                                    { user: "Sarah L.", action: "solved Hard problem #823", time: "2 mins ago", icon: CheckCircle, color: "text-green-500" },
-                                                    { user: "Admin", action: "updated server config", time: "45 mins ago", icon: Settings, color: "text-amber-500" },
-                                                    { user: "Kevin M.", action: "reported a bug in #94", time: "2 hours ago", icon: AlertCircle, color: "text-red-500" },
-                                                    { user: "New User", action: "signed up from New York", time: "4 hours ago", icon: Users, color: "text-blue-500" },
-                                                ].map((item, i) => (
-                                                    <div key={i} className="flex gap-4 group">
-                                                        <div className={`mt-0.5 p-2.5 rounded-xl bg-black/40 h-fit border border-border/10 shadow-lg group-hover:border-primary/20 transition-all`}>
-                                                            <item.icon className={`w-3.5 h-3.5 ${item.color}`} />
+                                                {(statsData?.recentActivity || []).slice(0, 5).map((item: any, i: number) => {
+                                                    let Icon = Users;
+                                                    let colorClass = "text-blue-500";
+                                                    if (item.type === 'signup') {
+                                                        Icon = Users;
+                                                        colorClass = "text-blue-500";
+                                                    } else if (item.type === 'blocked') {
+                                                        Icon = AlertCircle;
+                                                        colorClass = "text-red-500";
+                                                    } else if (item.type === 'solve') {
+                                                        Icon = CheckCircle;
+                                                        colorClass = "text-green-500";
+                                                    }
+
+                                                    return (
+                                                        <div key={i} className="flex gap-4 group">
+                                                            <div className={`mt-0.5 p-2.5 rounded-xl bg-black/40 h-fit border border-border/10 shadow-lg group-hover:border-primary/20 transition-all`}>
+                                                                <Icon className={`w-3.5 h-3.5 ${colorClass}`} />
+                                                            </div>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-sm font-medium leading-tight">
+                                                                    <span className="text-white group-hover:text-primary transition-colors cursor-pointer">{item.user}</span>
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground/80">{item.action}</p>
+                                                                <p className="text-[10px] text-muted-foreground/50 mt-1 flex items-center gap-1 font-mono">
+                                                                    <Clock className="w-2.5 h-2.5" />
+                                                                    {getTimeAgo(item.time)}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div className="space-y-0.5">
-                                                            <p className="text-sm font-medium leading-tight">
-                                                                <span className="text-white group-hover:text-primary transition-colors cursor-pointer">{item.user}</span>
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground/80">{item.action}</p>
-                                                            <p className="text-[10px] text-muted-foreground/50 mt-1 flex items-center gap-1 font-mono">
-                                                                <Clock className="w-2.5 h-2.5" />
-                                                                {item.time}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </CardContent>
                                         </Card>
 

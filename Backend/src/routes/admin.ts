@@ -66,13 +66,144 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
         });
 
         // 5. Interviews (Real Data)
-        const interviewsToday = await InterviewSession.countDocuments({ createdAt: { $gt: yesterday } });
-        const feedbackPending = await InterviewSession.countDocuments({ status: 'in-progress' });
+        const totalInterviews = await InterviewSession.countDocuments();
+        // Calculate most performed interview type
+        const typeAggregation = await InterviewSession.aggregate([
+            { $group: { _id: "$interviewType", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 1 }
+        ]);
+        let mostPerformedType = typeAggregation.length > 0 ? typeAggregation[0]._id : 'N/A';
+        if (mostPerformedType && mostPerformedType !== 'N/A') {
+            mostPerformedType = mostPerformedType.charAt(0).toUpperCase() + mostPerformedType.slice(1);
+        }
         
         // Calculate average score for completed sessions
         const completedSessions = await InterviewSession.find({ status: 'completed' }, 'aiReport.overallScore');
         const totalScore = completedSessions.reduce((acc, sess) => acc + (sess.aiReport?.overallScore || 0), 0);
         const avgInterviewScore = completedSessions.length > 0 ? Math.round(totalScore / completedSessions.length) : 0;
+
+        // 6. Recent Content Updates
+        const recentProblems = await Problem.find({}, 'id title difficulty status createdAt')
+            .sort({ createdAt: -1 })
+            .limit(3)
+            .lean();
+            
+        const recentContests = await Contest.find({}, 'title status startTime duration createdAt')
+            .sort({ createdAt: -1 })
+            .limit(3)
+            .lean();
+            
+        const CompanyMockOA = (await import('../models/CompanyMockOA')).default;
+        const recentMocks = await CompanyMockOA.find({}, 'title company status createdAt')
+            .sort({ createdAt: -1 })
+            .limit(3)
+            .lean();
+
+        const recentContent = [
+            ...recentProblems.map((p: any) => ({
+                type: 'Problem',
+                id: p.id || p._id.toString().slice(-4),
+                title: p.title,
+                status: p.status === 'Published' ? 'Published' : 'Draft',
+                meta: p.difficulty,
+                createdAt: p.createdAt
+            })),
+            ...recentContests.map((c: any) => {
+                const start = new Date(c.startTime);
+                const end = new Date(start.getTime() + (c.duration || 120) * 60000); // default 120m if missing
+                let dynStatus = c.status;
+                if (dynStatus !== 'DRAFT') {
+                    if (now >= start && now <= end) dynStatus = 'ACTIVE';
+                    else if (now < start) dynStatus = 'UPCOMING';
+                    else if (now > end) dynStatus = 'EXPIRED';
+                }
+                return {
+                    type: 'Contest',
+                    id: c._id.toString().slice(-4),
+                    title: c.title,
+                    status: dynStatus,
+                    meta: start.toLocaleDateString(),
+                    createdAt: c.createdAt
+                };
+            }),
+            ...recentMocks.map((m: any) => ({
+                type: 'Mock OA',
+                id: m._id.toString().slice(-4),
+                title: m.title,
+                status: m.status === 'ACTIVE' ? 'Published' : 'Draft',
+                meta: m.company,
+                createdAt: m.createdAt
+            }))
+        ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 5);
+
+        // 7. Recent Activity (Live Updates)
+        const newUsers = await User.find({}, 'fullName createdAt').sort({ createdAt: -1 }).limit(3).lean();
+        const blockedUsers = await User.find({ isBlocked: true }, 'fullName updatedAt').sort({ updatedAt: -1 }).limit(2).lean();
+        const recentSubmissions = await Submission.find({ verdict: { $in: ['AC', 'Accepted'] } }, 'uid problemIdentifier createdAt').sort({ createdAt: -1 }).limit(3).lean();
+
+        // Get user names for submissions
+        const subUids = [...new Set(recentSubmissions.map(s => s.uid))];
+        const subUsers = await User.find({ uid: { $in: subUids } }, 'uid fullName').lean();
+        const subUserMap = new Map(subUsers.map(u => [u.uid, u.fullName || 'Unknown']));
+
+        // Get problem titles
+        const probIds = [...new Set(recentSubmissions.map(s => s.problemIdentifier))];
+        const subProbs = await Problem.find({ $or: [{ id: { $in: probIds } }, { slug: { $in: probIds } }] }, 'id slug title').lean();
+        const probMap = new Map();
+        subProbs.forEach(p => {
+            probMap.set(p.id, p.title);
+            probMap.set(p.slug, p.title);
+        });
+
+        const recentActivity = [
+            ...newUsers.map((u: any) => ({
+                user: u.fullName || 'New User',
+                action: 'joined the platform',
+                time: u.createdAt,
+                type: 'signup'
+            })),
+            ...blockedUsers.map((u: any) => ({
+                user: u.fullName || 'Unknown User',
+                action: 'was blocked by admin',
+                time: u.updatedAt || u.createdAt,
+                type: 'blocked'
+            })),
+            ...recentSubmissions.map((s: any) => ({
+                user: subUserMap.get(s.uid) || 'User',
+                action: `solved ${probMap.get(s.problemIdentifier) || s.problemIdentifier}`,
+                time: s.createdAt,
+                type: 'solve'
+            }))
+        ].sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
+
+        // 8. Admin Specific Notifications
+        const adminNotifications = [
+            ...recentProblems.map((p: any) => ({
+                user: 'Admin',
+                action: `published a new problem: ${p.title}`,
+                time: p.createdAt,
+                type: 'admin'
+            })),
+            ...recentContests.map((c: any) => ({
+                user: 'Admin',
+                action: `scheduled a contest: ${c.title}`,
+                time: c.createdAt,
+                type: 'admin'
+            })),
+            ...recentMocks.map((m: any) => ({
+                user: 'Admin',
+                action: `created a mock OA for ${m.company}`,
+                time: m.createdAt,
+                type: 'admin'
+            })),
+            ...blockedUsers.map((u: any) => ({
+                user: 'Admin',
+                action: `blocked user ${u.fullName || 'Unknown'}`,
+                time: u.updatedAt || u.createdAt,
+                type: 'blocked'
+            }))
+        ].sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
 
         res.json({
             success: true,
@@ -100,11 +231,14 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
                     finished: finishedContests
                 },
                 interviews: {
-                    today: interviewsToday,
-                    pendingFeedback: feedbackPending,
+                    total: totalInterviews,
+                    mostPerformedType: mostPerformedType,
                     avgScore: avgInterviewScore,
                     totalCompleted: completedSessions.length
-                }
+                },
+                recentContent: recentContent,
+                recentActivity: recentActivity,
+                adminNotifications: adminNotifications
             }
         });
     } catch (error) {
