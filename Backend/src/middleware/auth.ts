@@ -34,7 +34,7 @@ let firebaseInitError: string | null = null;
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
     try {
-        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const serviceAccountPathEnv = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
         const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
         if (serviceAccountJson) {
@@ -42,20 +42,58 @@ if (!admin.apps.length) {
             admin.initializeApp({
                 credential: admin.credential.cert(parsed)
             });
-        } else if (serviceAccountPath) {
-            if (!fs.existsSync(serviceAccountPath)) {
-                throw new Error(`Firebase service account file not found at: ${serviceAccountPath}`);
+            console.log('[Firebase Init] Firebase Admin successfully initialized using JSON environment variable.');
+        } else {
+            let resolvedPath = serviceAccountPathEnv;
+            
+            // Self-healing path lookup
+            if (resolvedPath) {
+                if (!fs.existsSync(resolvedPath)) {
+                    const basename = path.basename(resolvedPath) || 'firebase-service-account.json';
+                    const candidates = [
+                        path.resolve(process.cwd(), basename),
+                        path.resolve(process.cwd(), 'Backend', basename),
+                        path.resolve(__dirname, '..', basename),
+                        path.resolve(__dirname, '..', '..', basename),
+                        path.resolve(__dirname, '..', '..', 'Backend', basename)
+                    ];
+                    const found = candidates.find(p => fs.existsSync(p));
+                    if (found) {
+                        resolvedPath = found;
+                        console.log(`[Firebase Init] Auto-resolved service account path to: ${resolvedPath}`);
+                    }
+                }
+            } else {
+                // Look for default filename in standard candidates if env is not defined
+                const candidates = [
+                    path.resolve(process.cwd(), 'firebase-service-account.json'),
+                    path.resolve(process.cwd(), 'Backend', 'firebase-service-account.json'),
+                    path.resolve(__dirname, '..', 'firebase-service-account.json'),
+                    path.resolve(__dirname, '..', '..', 'firebase-service-account.json'),
+                    path.resolve(__dirname, '..', '..', 'Backend', 'firebase-service-account.json')
+                ];
+                const found = candidates.find(p => fs.existsSync(p));
+                if (found) {
+                    resolvedPath = found;
+                    console.log(`[Firebase Init] Located default service account path at: ${resolvedPath}`);
+                }
             }
 
-            const raw = fs.readFileSync(serviceAccountPath, 'utf8');
-            const parsed = JSON.parse(raw);
-            admin.initializeApp({
-                credential: admin.credential.cert(parsed)
-            });
-        } else {
-            admin.initializeApp({
-                credential: admin.credential.applicationDefault()
-            });
+            if (resolvedPath && fs.existsSync(resolvedPath)) {
+                const raw = fs.readFileSync(resolvedPath, 'utf8');
+                const parsed = JSON.parse(raw);
+                admin.initializeApp({
+                    credential: admin.credential.cert(parsed)
+                });
+                console.log(`[Firebase Init] Firebase Admin successfully initialized using key file: ${resolvedPath}`);
+            } else if (resolvedPath) {
+                throw new Error(`Firebase service account file not found at: ${resolvedPath} (original env: ${serviceAccountPathEnv})`);
+            } else {
+                admin.initializeApp({
+                    credential: admin.credential.applicationDefault()
+                });
+                console.log('[Firebase Init] Firebase Admin initialized using application default credentials.');
+            }
         }
     } catch (err) {
         firebaseInitError = err instanceof Error ? err.message : String(err);

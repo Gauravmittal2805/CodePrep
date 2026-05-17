@@ -150,7 +150,7 @@ router.get('/stats', requireAuth, async (req, res) => {
         console.log(`[Dashboard] Found ${acceptedSubmissions.length} accepted submissions, ${problemsSolved} unique solved problems`);
 
         // Calculate current and max streak using normalized UTC timestamps
-        const submissionDates = new Set(submissions.map(s => {
+        const submissionDates = new Set<number>(submissions.map(s => {
             const date = new Date(s.createdAt);
             return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
         }));
@@ -426,7 +426,7 @@ router.get('/recent-submissions', requireAuth, async (req, res) => {
             id: { $in: submissions.map(s => s.problemIdentifier) }
         });
 
-        const problemMap = new Map(problems.map(p => [p.id, p]));
+        const problemMap = new Map<string, any>(problems.map(p => [p.id, p]));
 
         const recentSubmissions = submissions.map(sub => {
             const problem = problemMap.get(sub.problemIdentifier);
@@ -478,7 +478,7 @@ router.get('/accepted-submissions', requireAuth, async (req, res) => {
             id: { $in: acceptedSubmissions.map(s => s.problemIdentifier) }
         });
 
-        const problemMap = new Map(problems.map(p => [p.id, p]));
+        const problemMap = new Map<string, any>(problems.map(p => [p.id, p]));
 
         const latestAccepted = acceptedSubmissions.map(sub => {
             const problem = problemMap.get(sub.problemIdentifier);
@@ -817,7 +817,7 @@ router.get('/dsa-mastery', requireAuth, async (req, res) => {
 
         // Fetch all problems to get topic/tag information
         const allProblems = await Problem.find({}, 'id slug title difficulty tags topic');
-        const problemMap = new Map(allProblems.map(p => [p.id, p]));
+        const problemMap = new Map<string, any>(allProblems.map(p => [p.id, p]));
 
         // Also map by slug for fallback
         allProblems.forEach(p => problemMap.set(p.slug, p));
