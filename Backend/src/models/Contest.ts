@@ -65,6 +65,7 @@ const contestSchema = new mongoose.Schema({
         tags: [{ type: String }]
     },
 
+    scoresProcessed: { type: Boolean, default: false },
     status: { type: String, enum: ['DRAFT', 'UPCOMING', 'ONGOING', 'ENDED'], default: 'DRAFT' },
     createdBy: { type: String, required: true }, // Clerk User ID or Firebase UID
     participants: [{ type: String }] // User IDs

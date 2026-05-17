@@ -1,59 +1,11 @@
 import { useState, useEffect } from "react";
-import { Search, Briefcase, ArrowRight, Flame, Trophy, LayoutGrid, Zap } from "lucide-react";
+import { Search, ArrowRight, Flame } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import ProblemsTable from "@/components/problems/ProblemsTable";
 import Navbar from "@/components/landing/Navbar";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-
-
-const mockOASets = [
-  {
-    id: 1,
-    title: "Mock OA Set",
-    subtitle: "Mock OA Set",
-    description: "Group of 2-3 problems • Time-bound • Company-based",
-    buttonText: "Start OA Set",
-    gradient: "from-indigo-600 to-purple-600",
-    textColor: "text-white",
-    icon: <LayoutGrid className="w-8 h-8 text-white/90" />,
-    badgeColor: "bg-yellow-400/90 text-black font-bold border-yellow-500"
-  },
-  {
-    id: 2,
-    title: "Contest",
-    subtitle: "Live",
-    description: "Compete with others in real-time",
-    buttonText: "Join Now",
-    gradient: "from-purple-600 to-pink-600",
-    textColor: "text-white",
-    icon: <Zap className="w-8 h-8 text-white/90" />,
-    badgeColor: "bg-white/20 text-white border-white/30"
-  },
-  {
-    id: 3,
-    title: "Interview",
-    subtitle: "Premium",
-    description: "Ace your next coding interview",
-    buttonText: "Practice Now",
-    gradient: "from-amber-600 to-orange-500",
-    textColor: "text-white",
-    icon: <Briefcase className="w-8 h-8 text-white/90" />,
-    badgeColor: "bg-white/20 text-white border-white/30"
-  },
-  {
-    id: 4,
-    title: "Learn",
-    subtitle: "Crash Course",
-    description: "Master the fundamentals",
-    buttonText: "Start Practice",
-    gradient: "from-purple-600 to-pink-500",
-    textColor: "text-white",
-    icon: <LayoutGrid className="w-8 h-8 text-white/90" />,
-    badgeColor: "bg-white/20 text-white border-white/30"
-  }
-];
 
 
 // Streak dates will be fetched from API
@@ -382,89 +334,6 @@ const Problems = () => {
                   />
                 </div>
               </CardContent>
-
-              <CardFooter className="px-5 pb-5 pt-4 border-t border-border/10 flex flex-col gap-4">
-                <div className="w-full space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Weekly Progress</span>
-                    <span className="text-amber-500 font-bold">Premium ✨</span>
-                  </div>
-                  <div className="flex justify-between gap-1.5">
-                    {['W1', 'W2', 'W3', 'W4', 'W5'].map((w) => (
-                      <div key={w} className="flex-1 h-1.5 rounded-full bg-secondary/30 overflow-hidden">
-                        <div className={`h-full bg-amber-500/50 w-0`} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2 text-primary">
-                    <Trophy className="w-4 h-4" />
-                    <span className="text-xs font-bold">Best: 0</span>
-                  </div>
-                  <button className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-foreground transition-colors">
-                    Rules
-                  </button>
-                </div>
-              </CardFooter>
-            </Card>
-
-            {/* Practice Cards */}
-            <div className="space-y-4">
-              {mockOASets.map((set) => (
-                <div
-                  key={set.id}
-                  className={`p-4 rounded-2xl bg-gradient-to-br ${set.gradient} ${set.textColor} relative overflow-hidden group cursor-pointer transition-all duration-300 hover:shadow-lg`}
-                >
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium bg-black/10 px-2 py-0.5 rounded-full">
-                        {set.subtitle}
-                      </span>
-                      <div className="opacity-80 group-hover:scale-110 transition-transform">
-                        {set.icon}
-                      </div>
-                    </div>
-                    <h3 className="text-base font-bold mb-1">{set.title}</h3>
-                    <p className="text-xs opacity-90 mb-3">
-                      {set.description}
-                    </p>
-                    <button
-                      className={`text-xs font-medium ${set.id === 1
-                        ? 'bg-white text-indigo-700 hover:bg-white/90'
-                        : 'bg-black/10 hover:bg-black/20 text-white'
-                        } px-3 py-1.5 rounded-full backdrop-blur-sm transition-all`}
-                    >
-                      {set.buttonText}
-                      {set.id === 1 && <ArrowRight className="inline ml-1 w-3 h-3" />}
-                    </button>
-                  </div>
-                  <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all" />
-                </div>
-              ))}
-            </div>
-
-            {/* Quick Stats Card */}
-            <Card className="border-border/40 bg-secondary/10 backdrop-blur-xl p-5 shadow-xl rounded-2xl">
-              <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-blue-500" />
-                Quick Stats
-              </h4>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Points earned</span>
-                  <span className="font-mono text-green-500">0</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Contest Rating</span>
-                  <span className="font-mono text-blue-500">1,200</span>
-                </div>
-                <div className="flex justify-between items-center text-xs border-t border-border/10 pt-4">
-                  <span className="text-muted-foreground">Global Rank</span>
-                  <span className="font-mono">N/A</span>
-                </div>
-              </div>
             </Card>
           </div>
         </div>

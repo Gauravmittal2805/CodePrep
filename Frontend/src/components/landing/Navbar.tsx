@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Code2, Menu, X, LogOut, User as UserIcon, Lock, Trophy, Layout, Users, BarChart3, Target, ChevronDown, Calendar, History, Flame } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetHeader } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import LoginForm from "../auth/LoginForm";
@@ -30,7 +31,28 @@ const Navbar = ({
 }: NavbarProps) => {
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [dbProfile, setDbProfile] = useState<{ fullName?: string; photoURL?: string } | null>(null);
   const { user, logout: authLogout, isAdmin } = useAuth();
+
+  useEffect(() => {
+    const fetchNavbarProfile = () => {
+      if (user?.uid) {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+        axios.get(`${API_BASE_URL}/auth/profile/${user.uid}`)
+          .then(res => setDbProfile(res.data))
+          .catch(e => console.error("Error fetching navbar profile:", e));
+      } else {
+        setDbProfile(null);
+      }
+    };
+
+    fetchNavbarProfile();
+
+    window.addEventListener('profile-updated', fetchNavbarProfile);
+    return () => {
+      window.removeEventListener('profile-updated', fetchNavbarProfile);
+    };
+  }, [user]);
   const navigate = useNavigate();
 
   const logout = async () => {
@@ -168,14 +190,14 @@ const Navbar = ({
                     title={isAdmin ? 'Go to Admin Dashboard' : 'Go to User Dashboard'}
                   >
                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-                      {user.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName || ""} className="w-full h-full rounded-full" />
+                      {dbProfile?.photoURL || user.photoURL ? (
+                        <img src={dbProfile?.photoURL || user.photoURL || undefined} alt={dbProfile?.fullName || user.displayName || ""} className="w-full h-full rounded-full" />
                       ) : (
                         <UserIcon className="w-4 h-4 text-primary" />
                       )}
                     </div>
                     <span className="text-sm font-medium text-foreground">
-                      {user.displayName}
+                      {dbProfile?.fullName || user.displayName}
                     </span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
@@ -267,14 +289,14 @@ const Navbar = ({
                         className="flex items-center gap-3 cursor-pointer hover:bg-secondary/30 p-2 rounded-xl transition-colors"
                       >
                         <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-                          {user.photoURL ? (
-                            <img src={user.photoURL} alt={user.displayName || ""} className="w-full h-full rounded-full" />
+                          {dbProfile?.photoURL || user.photoURL ? (
+                            <img src={dbProfile?.photoURL || user.photoURL || undefined} alt={dbProfile?.fullName || user.displayName || ""} className="w-full h-full rounded-full" />
                           ) : (
                             <UserIcon className="w-5 h-5 text-primary" />
                           )}
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-foreground">{user.displayName}</span>
+                          <span className="text-sm font-bold text-foreground">{dbProfile?.fullName || user.displayName}</span>
                           <span className="text-xs text-muted-foreground">{user.email}</span>
                         </div>
                       </div>

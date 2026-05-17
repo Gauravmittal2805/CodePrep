@@ -248,6 +248,156 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
 });
 
 /**
+ * @route   GET /api/admin/analytics
+ * @desc    Get real-time analytics data for the admin panel
+ */
+router.get('/analytics', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const now = new Date();
+        const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const last30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        // --- 1. User Active/Registration Stats (DAU, WAU, MAU) ---
+        // Active in submissions
+        const subUids24h = await Submission.distinct('uid', { createdAt: { $gte: last24h } });
+        const subUids7d = await Submission.distinct('uid', { createdAt: { $gte: last7d } });
+        const subUids30d = await Submission.distinct('uid', { createdAt: { $gte: last30d } });
+
+        // Registered in intervals
+        const regUsers24h = await User.find({ createdAt: { $gte: last24h } }).distinct('uid');
+        const regUsers7d = await User.find({ createdAt: { $gte: last7d } }).distinct('uid');
+        const regUsers30d = await User.find({ createdAt: { $gte: last30d } }).distinct('uid');
+
+        // Combine for active metrics
+        const dau = new Set([...subUids24h, ...regUsers24h]).size;
+        const wau = new Set([...subUids7d, ...regUsers7d]).size;
+        const mau = new Set([...subUids30d, ...regUsers30d]).size;
+
+        const userAnalytics = [
+            { label: "Daily Active Users (DAU)", value: dau.toLocaleString(), growth: "+0.0%", trend: "up" },
+            { label: "Weekly Active Users (WAU)", value: wau.toLocaleString(), growth: "+0.0%", trend: "up" },
+            { label: "Monthly Active Users (MAU)", value: mau.toLocaleString(), growth: "+0.0%", trend: "up" },
+        ];
+
+        // --- 2. 30-Day Activity Trend Chart ---
+        const chartData = [];
+        for (let i = 29; i >= 0; i--) {
+            const dayStart = new Date();
+            dayStart.setHours(0, 0, 0, 0);
+            dayStart.setDate(dayStart.getDate() - i);
+
+            const dayEnd = new Date(dayStart);
+            dayEnd.setDate(dayEnd.getDate() + 1);
+
+            const uniqueUsers = await Submission.distinct('uid', {
+                createdAt: { $gte: dayStart, $lt: dayEnd }
+            });
+            const regCount = await User.countDocuments({
+                createdAt: { $gte: dayStart, $lt: dayEnd }
+            });
+
+            const activeCount = new Set([...uniqueUsers]).size + regCount;
+
+            chartData.push({
+                name: dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                users: activeCount
+            });
+        }
+
+        // --- 3. Difficulty Breakdown ---
+        const easySolved = await Submission.distinct('problemIdentifier', { verdict: { $in: ['AC', 'Accepted'] } })
+            .then(async (ids) => await Problem.countDocuments({ id: { $in: ids }, difficulty: 'Easy' }));
+        const mediumSolved = await Submission.distinct('problemIdentifier', { verdict: { $in: ['AC', 'Accepted'] } })
+            .then(async (ids) => await Problem.countDocuments({ id: { $in: ids }, difficulty: 'Medium' }));
+        const hardSolved = await Submission.distinct('problemIdentifier', { verdict: { $in: ['AC', 'Accepted'] } })
+            .then(async (ids) => await Problem.countDocuments({ id: { $in: ids }, difficulty: 'Hard' }));
+
+        const easyTotal = await Problem.countDocuments({ difficulty: 'Easy' });
+        const mediumTotal = await Problem.countDocuments({ difficulty: 'Medium' });
+        const hardTotal = await Problem.countDocuments({ difficulty: 'Hard' });
+
+        const difficultyData = [
+            { difficulty: 'Easy', solved: easySolved, total: easyTotal, rate: easyTotal > 0 ? Math.round((easySolved / easyTotal) * 100) : 0 },
+            { difficulty: 'Medium', solved: mediumSolved, total: mediumTotal, rate: mediumTotal > 0 ? Math.round((mediumSolved / mediumTotal) * 100) : 0 },
+            { difficulty: 'Hard', solved: hardSolved, total: hardTotal, rate: hardTotal > 0 ? Math.round((hardSolved / hardTotal) * 100) : 0 },
+        ];
+
+        // --- 4. Problem Health List ---
+        const problemsList = await Problem.find({}).limit(10).lean();
+        const problemHealthData = await Promise.all(problemsList.map(async (prob, idx) => {
+            const submissions = await Submission.countDocuments({ problemIdentifier: prob.id });
+            const acCount = await Submission.countDocuments({ problemIdentifier: prob.id, verdict: { $in: ['AC', 'Accepted'] } });
+            const acceptance = submissions > 0 ? Math.round((acCount / submissions) * 100) : 0;
+
+            // Fetch primary failure reason
+            const failAgg = await Submission.aggregate([
+                { $match: { problemIdentifier: prob.id, verdict: { $nin: ['AC', 'Accepted'] } } },
+                { $group: { _id: '$verdict', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 1 }
+            ]);
+            const failure = failAgg.length > 0 ? failAgg[0]._id : 'None';
+
+            let health = 'Stable';
+            if (submissions === 0) health = 'Stable';
+            else if (acceptance < 30) health = 'Critical';
+            else if (acceptance < 55) health = 'Warning';
+            else if (acceptance < 80) health = 'Good';
+
+            return {
+                id: prob._id.toString(),
+                title: prob.title,
+                submissions,
+                acceptance,
+                avgTime: submissions > 0 ? '12min' : 'N/A',
+                failure: submissions > 0 ? failure : 'None',
+                health
+            };
+        }));
+
+        // --- 5. Top Problems ---
+        const topAgg = await Submission.aggregate([
+            { $group: { _id: '$problemIdentifier', attempts: { $sum: 1 } } },
+            { $sort: { attempts: -1 } },
+            { $limit: 5 }
+        ]);
+        
+        let topProblems = [];
+        if (topAgg.length > 0) {
+            topProblems = await Promise.all(topAgg.map(async (item) => {
+                const p = await Problem.findOne({ id: item._id });
+                return {
+                    title: p?.title || item._id,
+                    attempts: item.attempts
+                };
+            }));
+        } else {
+            const defaultProbs = await Problem.find({}).limit(5);
+            topProblems = defaultProbs.map((p) => ({
+                title: p.title,
+                attempts: 0
+            }));
+        }
+
+        res.json({
+            success: true,
+            data: {
+                userAnalytics,
+                chartData,
+                difficultyData,
+                problemHealthData,
+                topProblems
+            }
+        });
+
+    } catch (error) {
+        console.error('Analytics processing error:', error);
+        res.status(500).json({ success: false, error: 'Failed to process platform analytics' });
+    }
+});
+
+/**
  * @route   GET /api/admin/admins
  * @desc    Get all admins and moderators
  */
@@ -631,6 +781,203 @@ router.get('/contests/:contestId/leaderboard', requireAuth, async (req: Request,
     } catch (error) {
         console.error('Contest leaderboard error:', error);
         res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
+    }
+});
+
+/**
+ * @route   POST /api/admin/submissions/:id/analyze-plagiarism
+ * @desc    Analyze a submission code for plagiarism and send email if >60%
+ */
+router.post('/submissions/:id/analyze-plagiarism', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { sendPlagiarismEmail } = await import('../utils/emailService');
+        
+        const submission = await Submission.findById(id);
+        if (!submission) {
+            return res.status(404).json({ success: false, error: 'Submission not found' });
+        }
+
+        const user = await User.findOne({ uid: submission.uid });
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        const Groq = (await import('groq-sdk')).default;
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        
+        const completion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an AI plagiarism detector. You will receive a code snippet. Output ONLY a JSON object with two fields: 'score' (number from 0 to 100 indicating plagiarism likelihood) and 'reason' (short string). Do not output markdown, just the JSON string."
+                },
+                {
+                    role: "user",
+                    content: submission.code || ""
+                }
+            ],
+            model: "llama-3.1-8b-instant",
+            response_format: { type: "json_object" }
+        });
+
+        const resultText = completion.choices[0]?.message?.content || '{"score": 0, "reason": "Failed to analyze"}';
+        const aiResult = JSON.parse(resultText);
+        
+        if (aiResult.score > 60) {
+            await sendPlagiarismEmail(user.email, user.fullName, submission.problemIdentifier, aiResult.score);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                score: aiResult.score,
+                reason: aiResult.reason,
+                emailSent: aiResult.score > 60
+            }
+        });
+
+    } catch (error) {
+        console.error('Plagiarism analysis error:', error);
+        res.status(500).json({ success: false, error: 'Failed to analyze code' });
+    }
+});
+
+/**
+ * @route   POST /api/admin/contests/:contestId/process-scores
+ * @desc    Process contest scores after contest ends, update user profiles, and send emails
+ */
+router.post('/contests/:contestId/process-scores', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const { contestId } = req.params;
+        const { Contest } = await import('../models/Contest');
+        const { sendContestScoreEmail } = await import('../utils/emailService');
+
+        const contest = await Contest.findById(contestId);
+        if (!contest) {
+            return res.status(404).json({ success: false, error: 'Contest not found' });
+        }
+
+        // Check if contest has ended
+        const now = new Date();
+        if (new Date(contest.endTime) > now) {
+            return res.status(400).json({ success: false, error: 'Contest has not ended yet' });
+        }
+
+        // Check if already processed
+        if (contest.scoresProcessed) {
+            return res.status(400).json({ success: false, error: 'Scores already processed for this contest' });
+        }
+
+        // Calculate leaderboard
+        const submissions = await Submission.find({ contestId }).sort({ createdAt: 1 });
+        const participantStats = new Map<string, any>();
+
+        submissions.forEach(sub => {
+            if (!participantStats.has(sub.uid)) {
+                participantStats.set(sub.uid, {
+                    uid: sub.uid,
+                    totalScore: 0,
+                    solvedCount: 0,
+                    problems: new Map(),
+                    lastSubmissionTime: sub.createdAt
+                });
+            }
+
+            const stats = participantStats.get(sub.uid);
+            const probId = sub.problemIdentifier;
+
+            if (!stats.problems.has(probId)) {
+                stats.problems.set(probId, { score: 0, solved: false });
+            }
+
+            const probStats = stats.problems.get(probId);
+
+            if (!probStats.solved) {
+                if (sub.verdict === 'AC' || sub.verdict === 'Accepted') {
+                    probStats.solved = true;
+                    const contestProb = contest.problems.find((p: any) => p.problemId === probId);
+                    const score = contestProb?.score || 100;
+                    probStats.score = score;
+                    stats.totalScore += score;
+                    stats.solvedCount++;
+                    stats.lastSubmissionTime = sub.createdAt;
+                }
+            }
+        });
+
+        // Sort leaderboard
+        const leaderboard = Array.from(participantStats.values())
+            .sort((a, b) => {
+                if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+                return new Date(a.lastSubmissionTime).getTime() - new Date(b.lastSubmissionTime).getTime();
+            });
+
+        const totalProblems = contest.problems.length;
+        const totalParticipants = leaderboard.length;
+
+        // Max possible score for calculating percentage
+        const maxPossibleScore = contest.problems.reduce((sum: number, p: any) => sum + (p.score || 100), 0);
+
+        // Update each participant's user profile and send email
+        let emailsSent = 0;
+        for (let i = 0; i < leaderboard.length; i++) {
+            const entry = leaderboard[i];
+            const rank = i + 1;
+            const scorePercentage = maxPossibleScore > 0 ? Math.round((entry.totalScore / maxPossibleScore) * 100) : 0;
+
+            // Update user's contest score (running average of raw points)
+            const userDoc = await User.findOne({ uid: entry.uid });
+            if (userDoc) {
+                const prevContests = userDoc.contestsParticipated || 0;
+                const prevScore = userDoc.contestScore || 0;
+                // Running average of raw points: ((oldAvg * count) + newRawScore) / (count + 1)
+                const newAvgScore = Math.round(((prevScore * prevContests) + entry.totalScore) / (prevContests + 1));
+
+                await User.updateOne(
+                    { uid: entry.uid },
+                    {
+                        $set: {
+                            contestScore: newAvgScore,
+                            contestsParticipated: prevContests + 1
+                        }
+                    }
+                );
+
+                // Send email
+                try {
+                    await sendContestScoreEmail(
+                        userDoc.email,
+                        userDoc.fullName,
+                        contest.title,
+                        entry.totalScore,
+                        rank,
+                        totalParticipants,
+                        entry.solvedCount,
+                        totalProblems
+                    );
+                    emailsSent++;
+                } catch (emailErr) {
+                    console.error(`Failed to send score email to ${userDoc.email}:`, emailErr);
+                }
+            }
+        }
+
+        // Mark contest as processed
+        await Contest.updateOne({ _id: contestId }, { $set: { scoresProcessed: true } });
+
+        res.json({
+            success: true,
+            data: {
+                totalParticipants,
+                emailsSent,
+                contestTitle: contest.title
+            }
+        });
+
+    } catch (error) {
+        console.error('Contest score processing error:', error);
+        res.status(500).json({ success: false, error: 'Failed to process contest scores' });
     }
 });
 

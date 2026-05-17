@@ -13,7 +13,8 @@ import {
     ChevronRight,
     Lock,
     UserPlus,
-    Check
+    Check,
+    Send
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const ManageContests = () => {
     const [userSearchQuery, setUserSearchQuery] = useState("");
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [isProcessingScores, setIsProcessingScores] = useState(false);
 
     const fetchContests = async () => {
         if (!user) return;
@@ -184,6 +186,31 @@ const ManageContests = () => {
     useEffect(() => {
         fetchContests();
     }, [user]);
+
+    const handleProcessScores = async (contestId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!user) return;
+        setIsProcessingScores(true);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`http://localhost:5001/api/admin/contests/${contestId}/process-scores`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (result.success) {
+                toast.success(`Scores processed! ${result.data.emailsSent} emails sent to participants.`);
+                fetchContests();
+            } else {
+                toast.error(result.error || "Failed to process scores");
+            }
+        } catch (error) {
+            console.error("Process scores error:", error);
+            toast.error("Error processing contest scores");
+        } finally {
+            setIsProcessingScores(false);
+        }
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -398,6 +425,19 @@ const ManageContests = () => {
                                                     <Trash2 className="w-4 h-4" />
                                                     <span>Delete</span>
                                                 </DropdownMenuItem>
+                                                {(contest.status === 'ENDED' && !contest.scoresProcessed) && (
+                                                    <>
+                                                        <DropdownMenuSeparator className="bg-white/5" />
+                                                        <DropdownMenuItem
+                                                            onClick={(e) => handleProcessScores(contest._id, e)}
+                                                            disabled={isProcessingScores}
+                                                            className="gap-2 focus:bg-violet-500/10 text-violet-400 transition-colors"
+                                                        >
+                                                            <Send className="w-4 h-4" />
+                                                            <span>{isProcessingScores ? "Processing..." : "Process Scores & Email"}</span>
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                         <Button

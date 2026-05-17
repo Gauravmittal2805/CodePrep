@@ -36,6 +36,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { dashboardApi, type ContributionMonth, type RecentSubmission, type AcceptedSubmission, type TopicProgress, type WeakArea, type CompanyReadiness, type InterviewSession } from "@/services/dashboardApi";
 import UserMockOAList from "@/components/dashboard/UserMockOAList";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 const UserDashboard = () => {
     const { user } = useAuth();
@@ -48,6 +51,7 @@ const UserDashboard = () => {
         { label: "Problems Solved", value: "0", weeklyChange: "+0", icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10" },
         { label: "Current Streak", value: "0 Days", weeklyChange: "+0", icon: Zap, color: "text-amber-500", bg: "bg-amber-500/10" },
         { label: "Global Rank", value: "#0", weeklyChange: "+0", icon: Trophy, color: "text-primary", bg: "bg-primary/10" },
+        { label: "Contest Score", value: "0", weeklyChange: "0 played", icon: Target, color: "text-violet-500", bg: "bg-violet-500/10" },
     ]);
 
     const [contributionData, setContributionData] = useState<ContributionMonth[]>([]);
@@ -73,12 +77,31 @@ const UserDashboard = () => {
     const [weakPage, setWeakPage] = useState(0);
     const itemsPerWeakPage = 4;
 
+    const [profileData, setProfileData] = useState<{
+        fullName?: string;
+        bio?: string;
+        college?: string;
+        company?: string;
+        location?: string;
+        github?: string;
+        linkedin?: string;
+        portfolio?: string;
+        codingRole?: string;
+        createdAt?: string;
+        photoURL?: string;
+        coverURL?: string;
+    } | null>(null);
+
     // Fetch dashboard data
     useEffect(() => {
         const fetchDashboardData = async () => {
             if (!user) return;
 
             try {
+                // Fetch profile data
+                axios.get(`${API_BASE_URL}/auth/profile/${user.uid}`)
+                    .then(res => setProfileData(res.data))
+                    .catch(e => console.error("Profile fetch error:", e));
                 // Fetch all data in parallel
                 const [statsData, contributionsData, recentData, acceptedData] = await Promise.all([
                     dashboardApi.getStats().catch(e => { console.error('Stats error:', e); return null; }),
@@ -112,6 +135,14 @@ const UserDashboard = () => {
                         icon: Trophy,
                         color: "text-primary",
                         bg: "bg-primary/10"
+                    },
+                    {
+                        label: "Contest Score",
+                        value: String(statsData?.contestScore || 0),
+                        weeklyChange: `${statsData?.contestsParticipated || 0} played`,
+                        icon: Target,
+                        color: "text-violet-500",
+                        bg: "bg-violet-500/10"
                     },
                 ]);
 
@@ -898,16 +929,18 @@ const UserDashboard = () => {
                                 <div className="relative w-32 h-32 mb-4">
                                     <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-full blur opacity-50"></div>
                                     <div className="relative w-full h-full rounded-full border-4 border-[#111111] overflow-hidden bg-secondary">
-                                        {user?.photoURL ? (
-                                            <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
+                                        {profileData?.photoURL || user?.photoURL ? (
+                                            <img src={profileData?.photoURL || user?.photoURL || undefined} alt={profileData?.fullName || user?.displayName || "User"} className="w-full h-full object-cover" />
                                         ) : (
                                             <User className="w-12 h-12 text-muted-foreground m-auto mt-8" />
                                         )}
                                     </div>
                                     <div className="absolute bottom-1 right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-[#111111]" title="Online"></div>
                                 </div>
-                                <CardTitle className="text-2xl font-bold">{user?.displayName || "Coding Enthusiast"}</CardTitle>
-                                <CardDescription className="text-muted-foreground">Full Stack Developer</CardDescription>
+                                <CardTitle className="text-2xl font-bold">{profileData?.fullName || user?.displayName || "Coding Enthusiast"}</CardTitle>
+                                {profileData?.codingRole && (
+                                    <CardDescription className="text-muted-foreground">{profileData.codingRole}</CardDescription>
+                                )}
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="space-y-4 pt-4 border-t border-white/5">
@@ -915,34 +948,58 @@ const UserDashboard = () => {
                                         <Mail className="w-4 h-4 text-primary" />
                                         <span>{user?.email || "user@example.com"}</span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                        <MapPin className="w-4 h-4 text-primary" />
-                                        <span>San Francisco, CA</span>
-                                    </div>
+                                    {profileData?.location && (
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                            <MapPin className="w-4 h-4 text-primary" />
+                                            <span>{profileData.location}</span>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                         <Calendar className="w-4 h-4 text-primary" />
-                                        <span>Joined January 2024</span>
+                                        <span>
+                                            {profileData?.createdAt 
+                                                ? `Joined ${new Date(profileData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+                                                : user?.metadata?.creationTime
+                                                    ? `Joined ${new Date(user.metadata.creationTime).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+                                                    : "Joined Recently"}
+                                        </span>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 pt-4 border-t border-white/5">
-                                    <h4 className="text-sm font-semibold text-foreground/80">Bio</h4>
-                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                        Passionate about solving complex problems and building scalable web applications. Currently focusing on Mastering DSA and System Design.
-                                    </p>
-                                </div>
+                                {profileData?.bio && (
+                                    <div className="space-y-4 pt-4 border-t border-white/5">
+                                        <h4 className="text-sm font-semibold text-foreground/80">Bio</h4>
+                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                            {profileData.bio}
+                                        </p>
+                                    </div>
+                                )}
 
-                                <div className="pt-4 border-t border-white/5 flex gap-2 justify-center">
-                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/10">
-                                        <Github className="w-5 h-5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/10">
-                                        <Linkedin className="w-5 h-5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/10">
-                                        <Globe className="w-5 h-5" />
-                                    </Button>
-                                </div>
+                                {(profileData?.github || profileData?.linkedin || profileData?.portfolio) && (
+                                    <div className="pt-4 border-t border-white/5 flex gap-2 justify-center">
+                                        {profileData.github && (
+                                            <a href={profileData.github} target="_blank" rel="noopener noreferrer">
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/10">
+                                                    <Github className="w-5 h-5" />
+                                                </Button>
+                                            </a>
+                                        )}
+                                        {profileData.linkedin && (
+                                            <a href={profileData.linkedin} target="_blank" rel="noopener noreferrer">
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/10">
+                                                    <Linkedin className="w-5 h-5" />
+                                                </Button>
+                                            </a>
+                                        )}
+                                        {profileData.portfolio && (
+                                            <a href={profileData.portfolio} target="_blank" rel="noopener noreferrer">
+                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/10">
+                                                    <Globe className="w-5 h-5" />
+                                                </Button>
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
 
                                 <Button 
                                     onClick={() => navigate('/profile')}
@@ -958,7 +1015,7 @@ const UserDashboard = () => {
                     <div className="lg:col-span-9 space-y-6 flex flex-col h-full">
 
                         {/* TOP SECTION: Stats & Contribution Chart */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {/* Stats Cards */}
                             {stats.map((stat, i) => (
                                 <Card key={i} className="bg-[#111111] border-border/40 overflow-hidden relative group">

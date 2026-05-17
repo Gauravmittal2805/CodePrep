@@ -92,9 +92,11 @@ router.get('/', async (req, res) => {
         const contests = await Contest.find(query).sort({ startTime: 1 });
         console.log(`Found ${contests.length} contests for user ${userId || 'guest'} (isAdmin: ${isAdmin})`);
 
-        // Dynamically update status based on current time
+        const Submission = (await import('../models/Submission')).default;
+
+        // Dynamically update status and participants based on submissions
         const now = new Date();
-        const updatedContests = contests.map(contest => {
+        const updatedContests = await Promise.all(contests.map(async (contest) => {
             const startTime = new Date(contest.startTime);
             const endTime = new Date(startTime.getTime() + (contest.duration || 0) * 60000);
 
@@ -105,11 +107,16 @@ router.get('/', async (req, res) => {
                 status = 'ENDED';
             }
 
+            // Dynamically combine invited/registered participants and users who made submissions
+            const subUids = await Submission.distinct('uid', { contestId: contest._id });
+            const allParticipants = [...new Set([...(contest.participants || []), ...subUids])];
+
             return {
                 ...contest.toObject(),
-                status
+                status,
+                participants: allParticipants
             };
-        });
+        }));
 
         res.json({ success: true, data: updatedContests });
     } catch (error: any) {
@@ -122,7 +129,19 @@ router.get('/', async (req, res) => {
 router.get('/admin', requireAuth, adminCheck, async (req, res) => {
     try {
         const contests = await Contest.find().sort({ createdAt: -1 });
-        res.json({ success: true, data: contests });
+        const Submission = (await import('../models/Submission')).default;
+
+        const updatedContests = await Promise.all(contests.map(async (contest) => {
+            const subUids = await Submission.distinct('uid', { contestId: contest._id });
+            const allParticipants = [...new Set([...(contest.participants || []), ...subUids])];
+
+            return {
+                ...contest.toObject(),
+                participants: allParticipants
+            };
+        }));
+
+        res.json({ success: true, data: updatedContests });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -184,6 +203,8 @@ router.get('/:id', async (req, res) => {
         const contest = await Contest.findById(req.params.id);
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
+        const Submission = (await import('../models/Submission')).default;
+
         // Dynamically update status based on current time
         const now = new Date();
         const startTime = new Date(contest.startTime);
@@ -196,11 +217,16 @@ router.get('/:id', async (req, res) => {
             status = 'ENDED';
         }
 
+        // Dynamically combine invited/registered participants and users who made submissions
+        const subUids = await Submission.distinct('uid', { contestId: contest._id });
+        const allParticipants = [...new Set([...(contest.participants || []), ...subUids])];
+
         res.json({
             success: true,
             data: {
                 ...contest.toObject(),
-                status
+                status,
+                participants: allParticipants
             }
         });
     } catch (error: any) {

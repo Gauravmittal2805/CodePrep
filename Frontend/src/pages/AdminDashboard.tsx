@@ -162,6 +162,8 @@ const AdminDashboard = () => {
     const [selectedContestId, setSelectedContestId] = useState<string>("");
     const [contestLeaderboardData, setContestLeaderboardData] = useState<any[]>([]);
     const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+    const [isAnalyzingPlag, setIsAnalyzingPlag] = useState(false);
+    const [plagiarismScore, setPlagiarismScore] = useState<{score: number, reason: string, emailSent: boolean} | null>(null);
 
     const { user } = useAuth();
 
@@ -276,6 +278,30 @@ const AdminDashboard = () => {
             console.error('Failed to fetch admin stats:', error);
         } finally {
             // Stats loading done
+        }
+    };
+
+    const fetchAnalytics = async () => {
+        if (!user) return;
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:5001/api/admin/analytics', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const { userAnalytics: uAn, chartData: cD, difficultyData: dD, problemHealthData: pHD, topProblems: tP } = result.data;
+                    if (uAn) setUserAnalytics(uAn);
+                    if (cD) setChartData(cD);
+                    if (dD) setDifficultyData(dD);
+                    if (pHD) setProblemHealthData(pHD);
+                    if (tP) setTopProblems(tP);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch admin analytics:', error);
         }
     };
 
@@ -502,6 +528,33 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleAnalyzePlagiarism = async () => {
+        if (!user || !selectedSubmission) return;
+        setIsAnalyzingPlag(true);
+        setPlagiarismScore(null);
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`http://localhost:5001/api/admin/submissions/${selectedSubmission._id}/analyze-plagiarism`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (result.success) {
+                setPlagiarismScore(result.data);
+                if (result.data.emailSent) {
+                    toast.success("Violation email sent automatically.");
+                }
+            } else {
+                toast.error(result.error || "Analysis failed");
+            }
+        } catch (error) {
+            console.error("Plagiarism analysis error:", error);
+            toast.error("Failed to perform plagiarism analysis");
+        } finally {
+            setIsAnalyzingPlag(false);
+        }
+    };
+
     const fetchSubmissions = async (verdict?: string) => {
         if (!user) return;
         setIsLoadingSubmissions(true);
@@ -609,6 +662,7 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         fetchStats();
+        fetchAnalytics();
     }, [user]);
 
     const fetchContests = async () => {
@@ -762,39 +816,41 @@ const AdminDashboard = () => {
         return `${diffInDays} days ago`;
     };
 
-    const userAnalyticsDummy = [
+    const [userAnalytics, setUserAnalytics] = useState([
         { label: "Daily Active Users (DAU)", value: "1,240", growth: "+12.5%", trend: "up" },
         { label: "Weekly Active Users (WAU)", value: "5,680", growth: "+8.2%", trend: "up" },
         { label: "Monthly Active Users (MAU)", value: "18,400", growth: "+15.3%", trend: "up" },
-    ];
+    ]);
 
-    const chartData = Array.from({ length: 30 }, (_, i) => ({
-        name: `Day ${i + 1}`,
-        users: Math.floor(Math.random() * 500) + 800,
-    }));
+    const [chartData, setChartData] = useState<any[]>(
+        Array.from({ length: 30 }, (_, i) => ({
+            name: `Day ${i + 1}`,
+            users: 800 + i * 10,
+        }))
+    );
 
-    const difficultyData = [
+    const [difficultyData, setDifficultyData] = useState([
         { difficulty: 'Easy', solved: 450, total: 600, rate: 75 },
         { difficulty: 'Medium', solved: 280, total: 800, rate: 35 },
         { difficulty: 'Hard', solved: 85, total: 400, rate: 21 },
-    ];
+    ]);
 
-    const problemHealthData = [
-        { id: 1, title: "Two Sum", submissions: 1200, acceptance: 85, avgTime: "12min", failure: "WA", health: "Good" },
-        { id: 2, title: "Median of Two Sorted Arrays", submissions: 850, acceptance: 12, avgTime: "45min", failure: "TLE", health: "Critical" },
-        { id: 3, title: "Longest Palindromic Substring", submissions: 920, acceptance: 45, avgTime: "25min", failure: "WA", health: "Stable" },
-        { id: 4, title: "String to Integer (atoi)", submissions: 700, acceptance: 18, avgTime: "20min", failure: "WA", health: "Good" },
-        { id: 5, title: "Regular Expression Matching", submissions: 600, acceptance: 8, avgTime: "55min", failure: "TLE", health: "Critical" },
-        { id: 6, title: "Wildcard Matching", submissions: 400, acceptance: 42, avgTime: "18min", failure: "TLE", health: "Warning" },
-    ];
+    const [problemHealthData, setProblemHealthData] = useState([
+        { id: "1", title: "Two Sum", submissions: 1200, acceptance: 85, avgTime: "12min", failure: "WA", health: "Good" },
+        { id: "2", title: "Median of Two Sorted Arrays", submissions: 850, acceptance: 12, avgTime: "45min", failure: "TLE", health: "Critical" },
+        { id: "3", title: "Longest Palindromic Substring", submissions: 920, acceptance: 45, avgTime: "25min", failure: "WA", health: "Stable" },
+        { id: "4", title: "String to Integer (atoi)", submissions: 700, acceptance: 18, avgTime: "20min", failure: "WA", health: "Good" },
+        { id: "5", title: "Regular Expression Matching", submissions: 600, acceptance: 8, avgTime: "55min", failure: "TLE", health: "Critical" },
+        { id: "6", title: "Wildcard Matching", submissions: 400, acceptance: 42, avgTime: "18min", failure: "TLE", health: "Warning" },
+    ]);
 
-    const topProblems = [
+    const [topProblems, setTopProblems] = useState([
         { title: "Two Sum", attempts: 1540 },
         { title: "Reverse Integer", attempts: 1230 },
         { title: "Add Two Numbers", attempts: 1100 },
         { title: "LRU Cache", attempts: 980 },
         { title: "Valid Parentheses", attempts: 850 },
-    ];
+    ]);
 
     const [analyticsSubTab, setAnalyticsSubTab] = useState("users");
     const [searchQuery, setSearchQuery] = useState("");
@@ -807,6 +863,36 @@ const AdminDashboard = () => {
         } catch (error) {
             console.error("Logout failed", error);
         }
+    };
+
+    const handleExportCSV = () => {
+        if (!chartData || chartData.length === 0) return;
+
+        // Define headers
+        const headers = ["Date", "Active Users Count"];
+        
+        // Define rows
+        const rows = chartData.map(item => [
+            item.name,
+            item.users
+        ]);
+
+        // Build CSV content
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(e => e.join(","))
+        ].join("\n");
+
+        // Create blob and download link
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `user_activity_trend_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -1575,9 +1661,9 @@ const AdminDashboard = () => {
 
                                 {analyticsSubTab === "users" ? (
                                     <>
-                                        {/* Analytics Top Cards */}
+                                                                        {/* Analytics Top Cards */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            {userAnalyticsDummy.map((stat, idx) => (
+                                            {userAnalytics.map((stat, idx) => (
                                                 <Card key={idx} className="bg-[#111111] border-border/40 hover:border-primary/40 transition-all group">
                                                     <CardContent className="pt-6">
                                                         <div className="flex justify-between items-start">
@@ -1606,7 +1692,7 @@ const AdminDashboard = () => {
                                                         <CardTitle>User Activity Trend</CardTitle>
                                                         <CardDescription>Daily active users over the last 30 days</CardDescription>
                                                     </div>
-                                                    <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase tracking-widest gap-2">
+                                                    <Button onClick={handleExportCSV} variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase tracking-widest gap-2">
                                                         <Database className="w-3 h-3" />
                                                         Export CSV
                                                     </Button>
@@ -3122,7 +3208,12 @@ const AdminDashboard = () => {
                                 </Card>
 
                                 {/* Submission Code Modal */}
-                                <Dialog open={!!selectedSubmission} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
+                                <Dialog open={!!selectedSubmission} onOpenChange={(open) => {
+                                    if (!open) {
+                                        setSelectedSubmission(null);
+                                        setPlagiarismScore(null);
+                                    }
+                                }}>
                                     <DialogContent className="max-w-4xl max-h-[80vh] bg-[#0a0a0a] border-border/40 overflow-hidden flex flex-col p-0">
                                         <DialogHeader className="p-6 border-b border-border/10">
                                             <div className="flex items-center justify-between">
@@ -3173,13 +3264,25 @@ const AdminDashboard = () => {
                                                     <span>{selectedSubmission?.memory ? (selectedSubmission.memory / 1024).toFixed(1) + ' KB' : 'N/A'}</span>
                                                 </div>
                                             </div>
-                                            <Button variant="outline" size="sm" className="h-8 gap-2 border-primary/20 hover:border-primary/50 text-primary" onClick={() => {
-                                                navigator.clipboard.writeText(selectedSubmission?.code || '');
-                                                toast.success("Code copied to clipboard");
-                                            }}>
-                                                <ClipboardList className="w-3.5 h-3.5" />
-                                                Copy Code
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className={cn("h-8 gap-2", plagiarismScore?.score ? (plagiarismScore.score > 60 ? "border-red-500/50 text-red-500" : "border-green-500/50 text-green-500") : "border-amber-500/20 hover:border-amber-500/50 text-amber-500")} 
+                                                    onClick={handleAnalyzePlagiarism}
+                                                    disabled={isAnalyzingPlag}
+                                                >
+                                                    <Zap className={cn("w-3.5 h-3.5", isAnalyzingPlag && "animate-pulse")} />
+                                                    {isAnalyzingPlag ? "Analyzing..." : (plagiarismScore ? `Plagiarism: ${plagiarismScore.score}%` : "Analyze Plagiarism (AI)")}
+                                                </Button>
+                                                <Button variant="outline" size="sm" className="h-8 gap-2 border-primary/20 hover:border-primary/50 text-primary" onClick={() => {
+                                                    navigator.clipboard.writeText(selectedSubmission?.code || '');
+                                                    toast.success("Code copied to clipboard");
+                                                }}>
+                                                    <ClipboardList className="w-3.5 h-3.5" />
+                                                    Copy Code
+                                                </Button>
+                                            </div>
                                         </div>
                                     </DialogContent>
                                 </Dialog>
@@ -3229,6 +3332,7 @@ const AdminDashboard = () => {
                                         </CardContent>
                                     </Card>
                                 ) : activeItem === "Contest Submissions" ? (
+                                    <>
                                     <Card className="bg-[#111111] border-border/40 overflow-hidden shadow-2xl">
                                         <CardContent className="p-0">
                                             <div className="overflow-x-auto">
@@ -3308,6 +3412,87 @@ const AdminDashboard = () => {
                                             </div>
                                         </CardContent>
                                     </Card>
+
+                                    {/* Contest Submission Code Modal */}
+                                    <Dialog open={!!selectedSubmission} onOpenChange={(open) => {
+                                        if (!open) {
+                                            setSelectedSubmission(null);
+                                            setPlagiarismScore(null);
+                                        }
+                                    }}>
+                                        <DialogContent className="max-w-4xl max-h-[80vh] bg-[#0a0a0a] border-border/40 overflow-hidden flex flex-col p-0">
+                                            <DialogHeader className="p-6 border-b border-border/10">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="space-y-1">
+                                                        <DialogTitle className="text-xl font-bold text-primary flex items-center gap-3">
+                                                            Submission Details
+                                                            <Badge variant="outline" className={cn(
+                                                                "text-[10px] uppercase font-bold px-2",
+                                                                (selectedSubmission?.verdict === 'AC' || selectedSubmission?.verdict === 'Accepted') ? "border-green-500/50 text-green-500" : "border-red-500/50 text-red-500"
+                                                            )}>
+                                                                {selectedSubmission?.verdict}
+                                                            </Badge>
+                                                        </DialogTitle>
+                                                        <DialogDescription className="text-xs text-muted-foreground">
+                                                            Submitted by <span className="text-white font-medium">{selectedSubmission?.user?.fullName}</span> for <span className="text-white font-medium">{selectedSubmission?.problem?.title}</span>
+                                                        </DialogDescription>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Language</div>
+                                                        <div className="text-sm font-mono text-primary font-bold uppercase">{selectedSubmission?.language}</div>
+                                                    </div>
+                                                </div>
+                                            </DialogHeader>
+                                            <div className="flex-1 overflow-auto p-0 bg-black/40">
+                                                <div className="relative">
+                                                    <div className="absolute left-0 top-0 bottom-0 w-12 bg-white/[0.03] border-r border-white/5 flex flex-col items-center py-4 text-[10px] font-mono text-muted-foreground/40 select-none">
+                                                        {selectedSubmission?.code?.split('\n').map((_: string, i: number) => (
+                                                            <div key={i} className="h-5 flex items-center">{i + 1}</div>
+                                                        ))}
+                                                    </div>
+                                                    <pre className="p-4 pl-16 text-sm font-mono text-white/90 leading-5 overflow-visible whitespace-pre">
+                                                        <code>{selectedSubmission?.code}</code>
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                            <div className="p-4 border-t border-border/10 bg-black/60 flex items-center justify-between">
+                                                <div className="flex items-center gap-6 text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-3 h-3" />
+                                                        <span>{selectedSubmission ? new Date(selectedSubmission.createdAt).toLocaleString() : ''}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Activity className="w-3 h-3" />
+                                                        <span>{selectedSubmission?.executionTime || 0}ms</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Cpu className="w-3 h-3" />
+                                                        <span>{selectedSubmission?.memory ? (selectedSubmission.memory / 1024).toFixed(1) + ' KB' : 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className={cn("h-8 gap-2", plagiarismScore?.score ? (plagiarismScore.score > 60 ? "border-red-500/50 text-red-500" : "border-green-500/50 text-green-500") : "border-amber-500/20 hover:border-amber-500/50 text-amber-500")} 
+                                                        onClick={handleAnalyzePlagiarism}
+                                                        disabled={isAnalyzingPlag}
+                                                    >
+                                                        <Zap className={cn("w-3.5 h-3.5", isAnalyzingPlag && "animate-pulse")} />
+                                                        {isAnalyzingPlag ? "Analyzing..." : (plagiarismScore ? `Plagiarism: ${plagiarismScore.score}%` : "Analyze Plagiarism (AI)")}
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" className="h-8 gap-2 border-primary/20 hover:border-primary/50 text-primary" onClick={() => {
+                                                        navigator.clipboard.writeText(selectedSubmission?.code || '');
+                                                        toast.success("Code copied to clipboard");
+                                                    }}>
+                                                        <ClipboardList className="w-3.5 h-3.5" />
+                                                        Copy Code
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                    </>
                                 ) : (
                                     <Card className="bg-[#111111] border-border/40 overflow-hidden shadow-2xl">
                                         <CardContent className="p-0">
@@ -3320,13 +3505,12 @@ const AdminDashboard = () => {
                                                             <th className="px-6 py-4">Score</th>
                                                             <th className="px-6 py-4">Solved</th>
                                                             <th className="px-6 py-4">Last Submission</th>
-                                                            <th className="px-6 py-4 text-right">Actions</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-white/[0.05]">
                                                         {isLoadingLeaderboard ? (
                                                             <tr>
-                                                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
                                                                     <div className="flex flex-col items-center gap-2">
                                                                         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                                                         <span>Calculating leaderboard...</span>
@@ -3335,7 +3519,7 @@ const AdminDashboard = () => {
                                                             </tr>
                                                         ) : contestLeaderboardData.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
                                                                     No data available for this contest leaderboard.
                                                                 </td>
                                                             </tr>
@@ -3379,11 +3563,7 @@ const AdminDashboard = () => {
                                                                     <td className="px-6 py-4 text-xs text-muted-foreground">
                                                                         {new Date(entry.lastSubmissionTime).toLocaleTimeString()}
                                                                     </td>
-                                                                    <td className="px-6 py-4 text-right">
-                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                                            <Info className="w-4 h-4" />
-                                                                        </Button>
-                                                                    </td>
+
                                                                 </tr>
                                                             ))
                                                         )}

@@ -193,7 +193,17 @@ const Contests = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {filteredContests.map((contest) => (
+                            {filteredContests.map((contest) => {
+                                const now = new Date();
+                                const startTime = new Date(contest.startTime);
+                                const endTime = new Date(startTime.getTime() + ((contest.duration || 120) * 60000));
+                                const isRunning = now >= startTime && now <= endTime;
+                                const isUpcoming = now < startTime;
+                                const isEnded = now > endTime;
+                                
+                                const dynStatus = isRunning ? 'ONGOING' : isUpcoming ? 'UPCOMING' : 'ENDED';
+
+                                return (
                                 <Card
                                     key={contest._id}
                                     className="bg-[#111111] border-border/40 hover:border-primary/40 transition-all duration-300 group rounded-3xl overflow-hidden cursor-pointer flex flex-col h-full"
@@ -203,10 +213,10 @@ const Contests = () => {
                                         <div className="absolute top-0 right-0 p-4">
                                             <Badge className={cn(
                                                 "font-black uppercase text-[10px] tracking-widest px-3 py-1 border-0 shadow-lg",
-                                                contest.status === 'ONGOING' ? "bg-green-500 text-black animate-pulse" :
-                                                    contest.status === 'UPCOMING' ? "bg-blue-500 text-black" : "bg-zinc-700 text-white"
+                                                dynStatus === 'ONGOING' ? "bg-green-500 text-black animate-pulse" :
+                                                    dynStatus === 'UPCOMING' ? "bg-blue-500 text-black" : "bg-zinc-700 text-white"
                                             )}>
-                                                {contest.status}
+                                                {dynStatus}
                                             </Badge>
                                         </div>
 
@@ -284,17 +294,19 @@ const Contests = () => {
                                             <Button
                                                 className={cn(
                                                     "flex-1 h-12 rounded-2xl font-black uppercase tracking-widest text-xs gap-2 transition-all",
-                                                    contest.status === 'ONGOING' ? "bg-primary text-black hover:bg-primary/90" :
+                                                    isRunning ? "bg-primary text-black hover:bg-primary/90" :
+                                                    isEnded ? "bg-zinc-800 text-white hover:bg-zinc-700" :
                                                         "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
                                                 )}
                                             >
-                                                {contest.status === 'ONGOING' ? 'Enter Arena' : 'Set Reminder'}
+                                                {isRunning ? 'Start' : isEnded ? 'Practice Now' : 'Set Reminder'}
                                                 <ChevronRight className="w-4 h-4" />
                                             </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

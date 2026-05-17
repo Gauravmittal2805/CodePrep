@@ -85,7 +85,8 @@ router.get("/profile/:uid", async (req, res) => {
 router.patch("/profile/:uid", async (req, res) => {
     const { 
         fullName, bio, college, company, location, 
-        github, linkedin, portfolio, codingRole, techStack 
+        github, linkedin, portfolio, codingRole, techStack,
+        photoURL, coverURL
     } = req.body;
 
     try {
@@ -94,6 +95,8 @@ router.patch("/profile/:uid", async (req, res) => {
 
         // Update fields
         if (fullName) user.fullName = fullName;
+        if (photoURL !== undefined) user.photoURL = photoURL;
+        if (coverURL !== undefined) user.coverURL = coverURL;
         user.bio = bio;
         user.college = college;
         user.company = company;

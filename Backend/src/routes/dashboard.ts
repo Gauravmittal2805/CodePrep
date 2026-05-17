@@ -8,9 +8,129 @@ import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
 
+const processEndedContests = async () => {
+    try {
+        const { Contest } = await import('../models/Contest');
+        const { sendContestScoreEmail } = await import('../utils/emailService');
+
+        const now = new Date();
+        // Find all contests whose endTime has passed and scores are not yet processed
+        const endedContests = await Contest.find({
+            endTime: { $lte: now },
+            scoresProcessed: { $ne: true },
+            status: { $ne: 'DRAFT' }
+        });
+
+        if (endedContests.length === 0) return;
+
+        console.log(`[Dashboard Auto-Process] Found ${endedContests.length} ended, unprocessed contests to finalize.`);
+
+        for (const contest of endedContests) {
+            console.log(`[Dashboard Auto-Process] Processing scores for contest: ${contest.title} (${contest._id})`);
+
+            // Calculate leaderboard
+            const submissions = await Submission.find({ contestId: contest._id }).sort({ createdAt: 1 });
+            const participantStats = new Map<string, any>();
+
+            submissions.forEach(sub => {
+                if (!participantStats.has(sub.uid)) {
+                    participantStats.set(sub.uid, {
+                        uid: sub.uid,
+                        totalScore: 0,
+                        solvedCount: 0,
+                        problems: new Map(),
+                        lastSubmissionTime: sub.createdAt
+                    });
+                }
+
+                const stats = participantStats.get(sub.uid);
+                const probId = sub.problemIdentifier;
+
+                if (!stats.problems.has(probId)) {
+                    stats.problems.set(probId, { score: 0, solved: false });
+                }
+
+                const probStats = stats.problems.get(probId);
+
+                if (!probStats.solved) {
+                    if (sub.verdict === 'AC' || sub.verdict === 'Accepted') {
+                        probStats.solved = true;
+                        const contestProb = contest.problems.find((p: any) => p.problemId === probId);
+                        const score = contestProb?.score || 100;
+                        probStats.score = score;
+                        stats.totalScore += score;
+                        stats.solvedCount++;
+                        stats.lastSubmissionTime = sub.createdAt;
+                    }
+                }
+            });
+
+            // Sort leaderboard
+            const leaderboard = Array.from(participantStats.values())
+                .sort((a, b) => {
+                    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+                    return new Date(a.lastSubmissionTime).getTime() - new Date(b.lastSubmissionTime).getTime();
+                });
+
+            const totalProblems = contest.problems.length;
+            const totalParticipants = leaderboard.length;
+
+            // Update each participant's user profile and send email
+            for (let i = 0; i < leaderboard.length; i++) {
+                const entry = leaderboard[i];
+                const rank = i + 1;
+
+                // Update user's contest score (running average of raw points)
+                const userDoc = await User.findOne({ uid: entry.uid });
+                if (userDoc) {
+                    const prevContests = userDoc.contestsParticipated || 0;
+                    const prevScore = userDoc.contestScore || 0;
+                    // Running average of raw points: ((oldAvg * count) + newRawScore) / (count + 1)
+                    const newAvgScore = Math.round(((prevScore * prevContests) + entry.totalScore) / (prevContests + 1));
+
+                    await User.updateOne(
+                        { uid: entry.uid },
+                        {
+                            $set: {
+                                contestScore: newAvgScore,
+                                contestsParticipated: prevContests + 1
+                            }
+                        }
+                    );
+
+                    // Send email
+                    try {
+                        await sendContestScoreEmail(
+                            userDoc.email,
+                            userDoc.fullName,
+                            contest.title,
+                            entry.totalScore,
+                            rank,
+                            totalParticipants,
+                            entry.solvedCount,
+                            totalProblems
+                        );
+                    } catch (emailErr) {
+                        console.error(`[Dashboard Auto-Process] Failed to send email to ${userDoc.email}:`, emailErr);
+                    }
+                }
+            }
+
+            // Mark contest as processed in DB
+            await Contest.updateOne({ _id: contest._id }, { $set: { scoresProcessed: true } });
+            console.log(`[Dashboard Auto-Process] Successfully processed contest: ${contest.title}`);
+        }
+    } catch (error) {
+        console.error('[Dashboard Auto-Process Error] Error automatic score processing:', error);
+    }
+};
+
 // Get user dashboard stats
 router.get('/stats', requireAuth, async (req, res) => {
     try {
+        // Automatically process any ended, unprocessed contests
+        await processEndedContests();
+
         const uid = req.user?.uid;
         if (!uid) {
             return res.status(401).json({ error: 'Unauthorized' });
@@ -194,6 +314,9 @@ router.get('/stats', requireAuth, async (req, res) => {
         const pastAccuracy = prev7DaysSubs.length > 0 ? (prev7DaysAC / prev7DaysSubs.length) * 100 : 0;
         const improvementRate = Math.round(currentAccuracy - pastAccuracy);
 
+        // Fetch user's contest score
+        const currentUser = await User.findOne({ uid }, 'contestScore contestsParticipated');
+
         res.json({
             problemsSolved,
             totalAccepted: acceptedSubmissions.length,
@@ -205,7 +328,9 @@ router.get('/stats', requireAuth, async (req, res) => {
             streakChange: currentStreak > 0 ? '+1' : '0',
             globalRank: `#${globalRankNum.toLocaleString()}`,
             rankChange: weeklyChange > 0 ? `+${Math.abs(weeklyChange * 2)}` : '0',
-            totalSubmissions: submissions.length
+            totalSubmissions: submissions.length,
+            contestScore: currentUser?.contestScore || 0,
+            contestsParticipated: currentUser?.contestsParticipated || 0
         });
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);

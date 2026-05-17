@@ -36,6 +36,8 @@ export interface DashboardStats {
     globalRank: string;
     rankChange: string;
     totalSubmissions: number;
+    contestScore: number;
+    contestsParticipated: number;
 }
 
 export interface ContributionMonth {

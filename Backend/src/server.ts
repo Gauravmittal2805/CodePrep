@@ -43,7 +43,8 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -62,7 +63,7 @@ app.use("/api/interviews", interviewRoutes);
 // MongoDB Connection
 mongoose
     .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/CodePrep")
-    .then(() => console.log("Connected to MongoDB Compass"))
+    .then(() => console.log("Connected to MongoDB database"))
     .catch((err) => console.error("Could not connect to MongoDB:", err));
 
 app.listen(PORT, () => {

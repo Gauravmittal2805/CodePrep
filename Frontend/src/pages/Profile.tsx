@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import { toast } from "sonner";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 const Profile = () => {
     const { user, logout } = useAuth();
@@ -55,7 +55,9 @@ const Profile = () => {
         github: "",
         linkedin: "",
         portfolio: "",
-        codingRole: ""
+        codingRole: "",
+        photoURL: "",
+        coverURL: ""
     });
 
     useEffect(() => {
@@ -78,7 +80,9 @@ const Profile = () => {
                 github: data.github || "",
                 linkedin: data.linkedin || "",
                 portfolio: data.portfolio || "",
-                codingRole: data.codingRole || ""
+                codingRole: data.codingRole || "",
+                photoURL: data.photoURL || user?.photoURL || "",
+                coverURL: data.coverURL || ""
             });
         } catch (error) {
             console.error("Failed to fetch profile", error);
@@ -92,11 +96,36 @@ const Profile = () => {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, targetField: 'photoURL' | 'coverURL') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error("Please select a valid image file");
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image file size should be less than 5MB");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+                setFormData(prev => ({ ...prev, [targetField]: reader.result as string }));
+                toast.success(`${targetField === 'photoURL' ? 'Profile' : 'Cover'} photo updated! Click "Save Changes" to persist.`);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleSave = async () => {
         setIsSaving(true);
         try {
             await axios.patch(`${API_BASE_URL}/auth/profile/${user?.uid}`, formData);
             toast.success("Profile updated successfully!");
+            window.dispatchEvent(new Event('profile-updated'));
         } catch (error) {
             console.error("Save failed", error);
             toast.error("Failed to update profile");
@@ -139,15 +168,29 @@ const Profile = () => {
 
             {/* TOP BANNER */}
             <div className="relative h-64 md:h-72 w-full overflow-hidden mt-14 group">
+                <input 
+                    type="file" 
+                    id="cover-file-input" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleFileChange(e, 'coverURL')} 
+                />
+                <input 
+                    type="file" 
+                    id="profile-file-input" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleFileChange(e, 'photoURL')} 
+                />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a0a]/20 to-[#0a0a0a] z-10" />
                 <div className="absolute inset-0 bg-primary/10 mix-blend-overlay z-0 animate-pulse" />
                 <img 
-                    src="https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop" 
+                    src={formData.coverURL || "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop"} 
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
                     alt="Cover"
                 />
                 <div className="absolute bottom-6 right-6 md:right-12 z-20">
-                    <Button variant="secondary" size="sm" className="bg-black/40 backdrop-blur-xl border-white/10 text-white hover:bg-black/60 transition-all font-bold">
+                    <Button onClick={() => document.getElementById('cover-file-input')?.click()} variant="secondary" size="sm" className="bg-black/40 backdrop-blur-xl border-white/10 text-white hover:bg-black/60 transition-all font-bold">
                         <Camera className="w-4 h-4 mr-2" /> Change Cover
                     </Button>
                 </div>
@@ -160,14 +203,14 @@ const Profile = () => {
                     <div className="relative group ml-4 md:ml-0">
                         <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary to-cyan-400 rounded-full blur opacity-40 group-hover:opacity-70 transition duration-500 shadow-[0_0_30px_-5px_rgba(124,58,237,0.5)]" />
                         <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-[6px] border-[#0a0a0a] overflow-hidden bg-[#111111] shadow-2xl">
-                            {user?.photoURL ? (
-                                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                            {formData.photoURL || user?.photoURL ? (
+                                <img src={formData.photoURL || user?.photoURL || undefined} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-primary/5">
                                     <UserIcon className="w-16 h-16 text-primary/40" />
                                 </div>
                             )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                            <div onClick={() => document.getElementById('profile-file-input')?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
                                 <Camera className="w-8 h-8 text-white" />
                             </div>
                         </div>
@@ -251,7 +294,7 @@ const Profile = () => {
                                     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <div className="flex items-center justify-between">
                                             <h2 className="text-2xl font-black text-white uppercase italic">
-                                                <span className="text-primary mr-2">//</span> Edit Details
+                                                Edit Details
                                             </h2>
                                             <Button 
                                                 onClick={handleSave} 
@@ -352,7 +395,7 @@ const Profile = () => {
                                 {activeTab === "notifications" && (
                                     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <h2 className="text-2xl font-black text-white uppercase italic">
-                                            <span className="text-primary mr-2">//</span> Notifications
+                                            Notifications
                                         </h2>
                                         
                                         <div className="space-y-6">
@@ -384,7 +427,7 @@ const Profile = () => {
                                 {activeTab === "password" && (
                                     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <h2 className="text-2xl font-black text-white uppercase italic">
-                                            <span className="text-primary mr-2">//</span> Change Password
+                                            Change Password
                                         </h2>
                                         
                                         <div className="max-w-md space-y-6">
@@ -411,7 +454,7 @@ const Profile = () => {
                                     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <div className="flex items-center justify-between">
                                             <h2 className="text-2xl font-black text-white uppercase italic">
-                                                <span className="text-primary mr-2">//</span> Professional Experience
+                                                Professional Experience
                                             </h2>
                                             <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold">
                                                 <Plus className="w-4 h-4 mr-2" /> Add Entry
@@ -467,7 +510,7 @@ const Profile = () => {
                                 {activeTab === "permissions" && (
                                     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <h2 className="text-2xl font-black text-white uppercase italic">
-                                            <span className="text-primary mr-2">//</span> Visibility & Permissions
+                                            Visibility & Permissions
                                         </h2>
                                         
                                         <div className="space-y-6">

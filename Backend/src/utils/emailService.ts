@@ -154,3 +154,106 @@ export const sendContestInvitationEmail = async (email: string, fullName: string
         console.error(`[Email Error] Failed to send contest invitation to ${email}:`, error);
     }
 };
+
+export const sendPlagiarismEmail = async (email: string, fullName: string, problemTitle: string, score: number) => {
+    const mailOptions = {
+        from: `"CodePrep Safety" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Important: Plagiarism Violation Detected ⚠️',
+        html: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #fee2e2; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #ef4444; margin: 0;">CodePrep Safety</h1>
+                </div>
+                <div style="background-color: #fef2f2; padding: 30px; border-radius: 8px;">
+                    <h2 style="color: #991b1b; margin-top: 0;">Code Violation Notice</h2>
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                        Hello ${fullName},
+                    </p>
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                        Our AI automated system has flagged your recent code submission for a high plagiarism score. Copying code from external sources violates our fair-play rules.
+                    </p>
+                    <div style="margin: 25px 0; padding: 20px; background-color: #ffffff; border-left: 4px solid #ef4444; border-radius: 4px;">
+                        <h3 style="margin-top: 0; color: #991b1b; font-size: 14px; text-transform: uppercase;">Violation Details:</h3>
+                        <p style="color: #1f2937; margin-bottom: 5px; font-weight: 500;">
+                            Problem: <strong>${problemTitle}</strong>
+                        </p>
+                        <p style="color: #1f2937; margin-bottom: 0; font-weight: 500;">
+                            Plagiarism Match: <strong>${score}%</strong>
+                        </p>
+                    </div>
+                    <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">
+                        Further violations will result in an immediate and permanent ban from CodePrep.
+                    </p>
+                </div>
+                <div style="margin-top: 30px; text-align: center; color: #9ca3af; font-size: 12px;">
+                    <p>© 2026 CodePrep Safety Team. All rights reserved.</p>
+                </div>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`[Email] Plagiarism alert sent to: ${email}`);
+    } catch (error) {
+        console.error(`[Email Error] Failed to send plagiarism email to ${email}:`, error);
+    }
+};
+
+export const sendContestScoreEmail = async (email: string, fullName: string, contestTitle: string, score: number, rank: number, totalParticipants: number, solvedCount: number, totalProblems: number) => {
+    const mailOptions = {
+        from: `"CodePrep Contests" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Your ${contestTitle} Results are Here! 🏆`,
+        html: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd6fe; border-radius: 10px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #7c3aed; margin: 0;">CodePrep Contests</h1>
+                </div>
+                <div style="background-color: #f5f3ff; padding: 30px; border-radius: 8px;">
+                    <h2 style="color: #4c1d95; margin-top: 0; text-align: center;">Contest Results 🎯</h2>
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                        Hello ${fullName},
+                    </p>
+                    <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                        The contest <strong style="color: #7c3aed;">${contestTitle}</strong> has ended. Here are your results:
+                    </p>
+                    
+                    <div style="margin: 25px 0; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Your Score</td>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 700; color: #7c3aed; font-size: 18px;">${score}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Your Rank</td>
+                                <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 700; color: #1f2937; font-size: 18px;">#${rank} of ${totalParticipants}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 0; color: #6b7280; font-size: 14px;">Problems Solved</td>
+                                <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669; font-size: 18px;">${solvedCount}/${totalProblems}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px;">
+                        <a href="${process.env.FRONTEND_URL}/contests" style="background-color: #7c3aed; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                            View Full Results
+                        </a>
+                    </div>
+                </div>
+                <div style="margin-top: 30px; text-align: center; color: #9ca3af; font-size: 12px;">
+                    <p>© 2026 CodePrep Team. All rights reserved.</p>
+                </div>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`[Email] Contest score sent to: ${email}`);
+    } catch (error) {
+        console.error(`[Email Error] Failed to send contest score to ${email}:`, error);
+    }
+};

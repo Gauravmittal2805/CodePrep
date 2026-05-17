@@ -5,6 +5,7 @@ export interface IUser extends Document {
     email: string;
     fullName: string;
     photoURL?: string;
+    coverURL?: string;
     lastForcedLogout?: Date;
     isBlocked?: boolean;
     blockReason?: string;
@@ -18,6 +19,8 @@ export interface IUser extends Document {
     portfolio?: string;
     codingRole?: string;
     techStack?: string[];
+    contestScore?: number;
+    contestsParticipated?: number;
     createdAt: Date;
 }
 
@@ -26,6 +29,7 @@ const UserSchema: Schema = new Schema({
     email: { type: String, required: true, unique: true },
     fullName: { type: String, required: true },
     photoURL: { type: String },
+    coverURL: { type: String },
     lastForcedLogout: { type: Date },
     isBlocked: { type: Boolean, default: false },
     blockReason: { type: String },
@@ -39,6 +43,8 @@ const UserSchema: Schema = new Schema({
     portfolio: { type: String },
     codingRole: { type: String },
     techStack: { type: [String] },
+    contestScore: { type: Number, default: 0 },
+    contestsParticipated: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now },
 });
 

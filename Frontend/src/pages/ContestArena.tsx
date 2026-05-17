@@ -234,7 +234,8 @@ const ContestArena = () => {
                                                                 isSolved ? "bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20" : "group-hover:bg-primary group-hover:text-black"
                                                             )}
                                                         >
-                                                            {isSolved ? "Solved" : "Solve"} <ChevronRight className="w-4 h-4 ml-1" />
+                                                            {isSolved ? "Solved" : "Solve"} 
+                                                            {isSolved ? <CheckCircle2 className="w-4 h-4 ml-1" /> : <ChevronRight className="w-4 h-4 ml-1" />}
                                                         </Button>
                                                     </div>
                                                 </CardContent>
