@@ -49,7 +49,8 @@ if (!admin.apps.length) {
             // Self-healing path lookup
             if (resolvedPath) {
                 if (!fs.existsSync(resolvedPath)) {
-                    const basename = path.basename(resolvedPath) || 'firebase-service-account.json';
+                    const cleanPath = resolvedPath.replace(/\\/g, '/');
+                    const basename = path.basename(cleanPath) || 'firebase-service-account.json';
                     const candidates = [
                         path.resolve(process.cwd(), basename),
                         path.resolve(process.cwd(), 'Backend', basename),
