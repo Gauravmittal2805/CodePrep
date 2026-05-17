@@ -34,7 +34,8 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import { toast } from "sonner";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://codeprep-4-k73y.onrender.com/api";
+const rawUrl = import.meta.env.VITE_API_URL || "https://codeprep-4-k73y.onrender.com";
+const API_BASE_URL = rawUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 const Profile = () => {
     const { user, logout } = useAuth();
@@ -69,7 +70,7 @@ const Profile = () => {
     const fetchProfile = async () => {
         setIsLoading(true);
         try {
-            const response = await axios.get(`${API_BASE_URL}/auth/profile/${user?.uid}`);
+            const response = await axios.get(`${API_BASE_URL}/api/auth/profile/${user?.uid}`);
             const data = response.data;
             setFormData({
                 fullName: data.fullName || "",
@@ -123,7 +124,7 @@ const Profile = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await axios.patch(`${API_BASE_URL}/auth/profile/${user?.uid}`, formData);
+            await axios.patch(`${API_BASE_URL}/api/auth/profile/${user?.uid}`, formData);
             toast.success("Profile updated successfully!");
             window.dispatchEvent(new Event('profile-updated'));
         } catch (error) {

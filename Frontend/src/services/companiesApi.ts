@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { auth } from '@/lib/firebase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://codeprep-4-k73y.onrender.com/api';
+const rawUrl = import.meta.env.VITE_API_URL || 'https://codeprep-4-k73y.onrender.com';
+const API_BASE_URL = rawUrl.replace(/\/api\/?$/, "").replace(/\/$/, "") + '/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,

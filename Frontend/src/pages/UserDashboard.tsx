@@ -38,7 +38,8 @@ import { dashboardApi, type ContributionMonth, type RecentSubmission, type Accep
 import UserMockOAList from "@/components/dashboard/UserMockOAList";
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://codeprep-4-k73y.onrender.com/api";
+const rawUrl = import.meta.env.VITE_API_URL || "https://codeprep-4-k73y.onrender.com";
+const API_BASE_URL = rawUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 const UserDashboard = () => {
     const { user } = useAuth();
@@ -99,7 +100,7 @@ const UserDashboard = () => {
 
             try {
                 // Fetch profile data
-                axios.get(`${API_BASE_URL}/auth/profile/${user.uid}`)
+                axios.get(`${API_BASE_URL}/api/auth/profile/${user.uid}`)
                     .then(res => setProfileData(res.data))
                     .catch(e => console.error("Profile fetch error:", e));
                 // Fetch all data in parallel
