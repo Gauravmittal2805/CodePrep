@@ -62,7 +62,7 @@ const ManageContests = () => {
         setIsLoading(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/contests/admin', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/contests/admin', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -83,7 +83,7 @@ const ManageContests = () => {
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/contests/${id}`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/contests/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ const ManageContests = () => {
         if (!user || !window.confirm("Are you sure you want to delete this contest?")) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/contests/${id}`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/contests/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -127,7 +127,7 @@ const ManageContests = () => {
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/users', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/users', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -144,7 +144,7 @@ const ManageContests = () => {
         setIsInviting(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/contests/${selectedContest._id}/invite`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/contests/${selectedContest._id}/invite`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -193,7 +193,7 @@ const ManageContests = () => {
         setIsProcessingScores(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/contests/${contestId}/process-scores`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/contests/${contestId}/process-scores`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

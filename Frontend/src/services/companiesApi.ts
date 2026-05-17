@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { auth } from '@/lib/firebase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://codeprep-4-k73y.onrender.com/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,

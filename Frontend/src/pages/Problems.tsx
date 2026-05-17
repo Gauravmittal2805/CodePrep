@@ -53,7 +53,7 @@ const Problems = () => {
         // Add a high limit to get all problems
         params.append('limit', '100');
         console.log('Fetching problems with params:', params.toString());
-        const response = await fetch(`http://localhost:5001/api/problems?${params.toString()}`, {
+        const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/problems?${params.toString()}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -141,7 +141,7 @@ const Problems = () => {
       if (!user) return;
       try {
         const token = await user.getIdToken();
-        const response = await fetch('http://localhost:5001/api/code/user-stats', {
+        const response = await fetch('https://codeprep-4-k73y.onrender.com/api/code/user-stats', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {

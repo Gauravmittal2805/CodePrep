@@ -35,7 +35,7 @@ const CreateMockOAForm = ({ onSuccess, companies }: { onSuccess?: () => void, co
     const fetchQuestions = async () => {
         try {
             const token = await user?.getIdToken();
-            const response = await fetch('http://localhost:5001/api/mockoa/questions', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/mockoa/questions', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
@@ -61,7 +61,7 @@ const CreateMockOAForm = ({ onSuccess, companies }: { onSuccess?: () => void, co
         setIsLoading(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/mockoa/create', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/mockoa/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

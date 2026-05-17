@@ -44,7 +44,7 @@ const ProblemDetail = () => {
 
         const token = await user.getIdToken();
 
-        const response = await fetch(`http://localhost:5001/api/problems/${id}`, {
+        const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/problems/${id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

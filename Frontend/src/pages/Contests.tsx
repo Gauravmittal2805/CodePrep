@@ -43,7 +43,7 @@ const Contests = () => {
                 const token = await user.getIdToken();
                 headers['Authorization'] = `Bearer ${token}`;
             }
-            const response = await fetch('http://localhost:5001/api/contests', { headers });
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/contests', { headers });
             const result = await response.json();
             if (result.success) {
                 setContests(result.data);

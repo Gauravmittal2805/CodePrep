@@ -40,7 +40,7 @@ const ContestArena = () => {
             const headers = { 'Authorization': `Bearer ${token}` };
 
             // Fetch Contest
-            const contestRes = await fetch(`http://localhost:5001/api/contests/${contestId}`, { headers });
+            const contestRes = await fetch(`https://codeprep-4-k73y.onrender.com/api/contests/${contestId}`, { headers });
             const contestData = await contestRes.json();
 
             if (contestData.success) {
@@ -48,7 +48,7 @@ const ContestArena = () => {
             }
 
             // Fetch Leaderboard
-            const lbRes = await fetch(`http://localhost:5001/api/contests/${contestId}/leaderboard`, { headers });
+            const lbRes = await fetch(`https://codeprep-4-k73y.onrender.com/api/contests/${contestId}/leaderboard`, { headers });
             const lbData = await lbRes.json();
 
             if (lbData.success) {

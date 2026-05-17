@@ -166,7 +166,7 @@ const MockOAAttempt: React.FC = () => {
 
                 // 1. Get OA Details
                 console.log("[OA] Fetching details...");
-                const oaRes = await fetch(`http://localhost:5001/api/mockoa/${id}`, {
+                const oaRes = await fetch(`https://codeprep-4-k73y.onrender.com/api/mockoa/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const oaData = await oaRes.json();
@@ -179,7 +179,7 @@ const MockOAAttempt: React.FC = () => {
 
                 // 2. Start Assessment (Session)
                 console.log("[OA] Starting session...");
-                const startRes = await fetch(`http://localhost:5001/api/mockoa/${id}/start`, {
+                const startRes = await fetch(`https://codeprep-4-k73y.onrender.com/api/mockoa/${id}/start`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -275,7 +275,7 @@ const MockOAAttempt: React.FC = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/code/test`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/code/test`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ const MockOAAttempt: React.FC = () => {
             // Sync with backend OA submission (so progress is saved)
             // We don't 'await' this strictly for the UI to be responsive, 
             // but we'll still catch errors if they happen.
-            fetch(`http://localhost:5001/api/mockoa/${submissionId}/submit-question`, {
+            fetch(`https://codeprep-4-k73y.onrender.com/api/mockoa/${submissionId}/submit-question`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -343,7 +343,7 @@ const MockOAAttempt: React.FC = () => {
         setIsFinishing(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/mockoa/${submissionId}/finish`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/mockoa/${submissionId}/finish`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

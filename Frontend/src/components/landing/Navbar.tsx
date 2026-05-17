@@ -37,7 +37,7 @@ const Navbar = ({
   useEffect(() => {
     const fetchNavbarProfile = () => {
       if (user?.uid) {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+        const API_BASE_URL = import.meta.env.VITE_API_URL || "https://codeprep-4-k73y.onrender.com/api";
         axios.get(`${API_BASE_URL}/auth/profile/${user.uid}`)
           .then(res => setDbProfile(res.data))
           .catch(e => console.error("Error fetching navbar profile:", e));

@@ -169,7 +169,7 @@ const CompanyDetail = () => {
         const toastId = toast.loading(`Generating your personalized ${company?.name} plan...`);
         try {
             const token = await auth.currentUser.getIdToken();
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ai/generate-plan`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://codeprep-4-k73y.onrender.com/api'}/ai/generate-plan`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -213,7 +213,7 @@ const CompanyDetail = () => {
                 try {
                     const token = await auth.currentUser?.getIdToken();
                     if (token) {
-                        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/mockoa/list`, {
+                        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://codeprep-4-k73y.onrender.com/api'}/mockoa/list`, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         const result = await response.json();

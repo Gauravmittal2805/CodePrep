@@ -69,7 +69,7 @@ export default function InterviewRoom() {
         const fetchQuestions = async () => {
             try {
                 const token = await user?.getIdToken();
-                const response = await axios.post("http://localhost:5001/api/ai/generate-questions", {
+                const response = await axios.post("https://codeprep-4-k73y.onrender.com/api/ai/generate-questions", {
                     type: interviewType,
                     difficulty: config.difficulty,
                     focusArea: config.focusArea,
@@ -294,7 +294,7 @@ export default function InterviewRoom() {
                 content: msg.text
             }));
 
-            const response = await axios.post("http://localhost:5001/api/ai/chat", {
+            const response = await axios.post("https://codeprep-4-k73y.onrender.com/api/ai/chat", {
                 messages: [
                     ...recentHistory,
                     { role: 'user', content: text },
@@ -368,7 +368,7 @@ export default function InterviewRoom() {
                 resumeContent: location.state?.resumeText || ""
             };
 
-            const response = await axios.post("http://localhost:5001/api/ai/submit-session", sessionData, {
+            const response = await axios.post("https://codeprep-4-k73y.onrender.com/api/ai/submit-session", sessionData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 

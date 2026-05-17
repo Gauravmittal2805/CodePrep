@@ -52,7 +52,7 @@ const RegisterForm = ({ onSignInClick, onSuccess }: RegisterFormProps) => {
             // Sync with MongoDB
             console.log("Starting backend sync for user:", userCredential.user.uid);
             try {
-                const response = await fetch("http://localhost:5001/api/auth/register", {
+                const response = await fetch("https://codeprep-4-k73y.onrender.com/api/auth/register", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

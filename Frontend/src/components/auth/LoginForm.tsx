@@ -38,7 +38,7 @@ const LoginForm = ({ onSignUpClick, onSuccess }: LoginFormProps) => {
             const user = userCredential.user;
 
             // Sync with backend to check status (e.g. if blocked)
-            const syncResponse = await fetch("http://localhost:5001/api/auth/register", {
+            const syncResponse = await fetch("https://codeprep-4-k73y.onrender.com/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

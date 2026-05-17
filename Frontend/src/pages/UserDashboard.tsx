@@ -38,7 +38,7 @@ import { dashboardApi, type ContributionMonth, type RecentSubmission, type Accep
 import UserMockOAList from "@/components/dashboard/UserMockOAList";
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://codeprep-4-k73y.onrender.com/api";
 
 const UserDashboard = () => {
     const { user } = useAuth();

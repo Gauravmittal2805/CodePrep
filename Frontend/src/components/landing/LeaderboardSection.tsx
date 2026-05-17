@@ -26,7 +26,7 @@ const LeaderboardSection = () => {
         console.log('[LeaderboardSection] Fetching public leaderboard data...');
 
         // Use public endpoint - no authentication required
-        const response = await fetch('http://localhost:5001/api/dashboard/public/leaderboard');
+        const response = await fetch('https://codeprep-4-k73y.onrender.com/api/dashboard/public/leaderboard');
 
         console.log('[LeaderboardSection] Response status:', response.status);
 

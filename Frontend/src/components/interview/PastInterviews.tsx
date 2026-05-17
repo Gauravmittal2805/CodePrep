@@ -18,7 +18,7 @@ const PastInterviews = () => {
         const fetchHistory = async () => {
             try {
                 const token = await user?.getIdToken();
-                const response = await axios.get("http://localhost:5001/api/ai/history", {
+                const response = await axios.get("https://codeprep-4-k73y.onrender.com/api/ai/history", {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data.success) {

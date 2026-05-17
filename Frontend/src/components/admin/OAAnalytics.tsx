@@ -30,7 +30,7 @@ const OAAnalytics: React.FC = () => {
             if (!user) return;
             try {
                 const token = await user.getIdToken();
-                const response = await fetch('http://localhost:5001/api/mockoa/admin/analytics', {
+                const response = await fetch('https://codeprep-4-k73y.onrender.com/api/mockoa/admin/analytics', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();

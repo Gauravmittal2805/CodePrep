@@ -113,8 +113,8 @@ const AddProblemForm = ({ onCancel, onSuccess, initialData }: AddProblemFormProp
             problemData.id = String(problemData.id);
 
             const url = initialData
-                ? `http://localhost:5001/api/problems/${initialData.id || initialData.slug}`
-                : 'http://localhost:5001/api/problems';
+                ? `https://codeprep-4-k73y.onrender.com/api/problems/${initialData.id || initialData.slug}`
+                : 'https://codeprep-4-k73y.onrender.com/api/problems';
 
             const method = initialData ? 'PATCH' : 'POST';
 

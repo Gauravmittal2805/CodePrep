@@ -171,7 +171,7 @@ const AdminDashboard = () => {
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/system/health', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/system/health', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -194,7 +194,7 @@ const AdminDashboard = () => {
         const toastId = toast.loading("Running deep system diagnostics...");
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/system/diagnostics', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/system/diagnostics', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -230,7 +230,7 @@ const AdminDashboard = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/judge/cleanup', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/judge/cleanup', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -265,7 +265,7 @@ const AdminDashboard = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/stats', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/stats', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -286,7 +286,7 @@ const AdminDashboard = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/analytics', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/analytics', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -310,7 +310,7 @@ const AdminDashboard = () => {
         setIsLoadingCompanies(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/companies', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/companies', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -331,7 +331,7 @@ const AdminDashboard = () => {
         setIsLoadingUsers(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/users', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/users', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -353,7 +353,7 @@ const AdminDashboard = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/users/${encodeURIComponent(targetUid)}/force-logout`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/users/${encodeURIComponent(targetUid)}/force-logout`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -375,7 +375,7 @@ const AdminDashboard = () => {
         setIsLoadingBlockedUsers(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/users/blocked', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/users/blocked', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -398,7 +398,7 @@ const AdminDashboard = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/users/${encodeURIComponent(targetUid)}/block`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/users/${encodeURIComponent(targetUid)}/block`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -423,7 +423,7 @@ const AdminDashboard = () => {
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/users/${encodeURIComponent(targetUid)}/unblock`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/users/${encodeURIComponent(targetUid)}/unblock`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -443,7 +443,7 @@ const AdminDashboard = () => {
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/problems/${problemId}`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/problems/${problemId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -470,7 +470,7 @@ const AdminDashboard = () => {
         setIsLoadingProblems(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/problems?limit=100&status=all', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/problems?limit=100&status=all', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -491,7 +491,7 @@ const AdminDashboard = () => {
         setIsLoadingMockOAs(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/mockoa/admin/list', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/mockoa/admin/list', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -512,7 +512,7 @@ const AdminDashboard = () => {
         setIsLoadingAdmins(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/admins', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/admins', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -534,7 +534,7 @@ const AdminDashboard = () => {
         setPlagiarismScore(null);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/submissions/${selectedSubmission._id}/analyze-plagiarism`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/submissions/${selectedSubmission._id}/analyze-plagiarism`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -560,7 +560,7 @@ const AdminDashboard = () => {
         setIsLoadingSubmissions(true);
         try {
             const token = await user.getIdToken();
-            let url = 'http://localhost:5001/api/admin/submissions?limit=50';
+            let url = 'https://codeprep-4-k73y.onrender.com/api/admin/submissions?limit=50';
             if (verdict) url += `&verdict=${verdict}`;
             
             const response = await fetch(url, {
@@ -594,7 +594,7 @@ const AdminDashboard = () => {
             };
 
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/admin/companies', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/admin/companies', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -638,7 +638,7 @@ const AdminDashboard = () => {
 
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/users/${encodeURIComponent(targetUid)}/role`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/users/${encodeURIComponent(targetUid)}/role`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -669,7 +669,7 @@ const AdminDashboard = () => {
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/contests', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/contests', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -690,7 +690,7 @@ const AdminDashboard = () => {
         setIsLoadingSubmissions(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/submissions?limit=100&contestId=${contestId}`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/submissions?limit=100&contestId=${contestId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -711,7 +711,7 @@ const AdminDashboard = () => {
         setIsLoadingLeaderboard(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/admin/contests/${contestId}/leaderboard`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/admin/contests/${contestId}/leaderboard`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {

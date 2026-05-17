@@ -30,7 +30,7 @@ const CompanyOAPatterns: React.FC = () => {
         setIsLoading(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/companies', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/companies', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -56,7 +56,7 @@ const CompanyOAPatterns: React.FC = () => {
         try {
             const token = await user.getIdToken();
             const response = await fetch(
-                `http://localhost:5001/api/company-patterns/${companyId}/generate-pattern`,
+                `https://codeprep-4-k73y.onrender.com/api/company-patterns/${companyId}/generate-pattern`,
                 {
                     method: 'POST',
                     headers: {

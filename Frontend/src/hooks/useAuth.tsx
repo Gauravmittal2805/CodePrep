@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const checkStatus = async () => {
             try {
                 await user.getIdToken(true); // Force refresh to catch revocation
-                const response = await fetch("http://localhost:5001/api/auth/register", {
+                const response = await fetch("https://codeprep-4-k73y.onrender.com/api/auth/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({

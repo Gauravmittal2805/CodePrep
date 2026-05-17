@@ -55,7 +55,7 @@ export default function QuestionGeneratorPanel({ onConfirm, baseConfig, triggerL
         setIsLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5001/api/interviews/generate-questions", {
+            const res = await fetch("https://codeprep-4-k73y.onrender.com/api/interviews/generate-questions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

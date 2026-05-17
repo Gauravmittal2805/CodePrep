@@ -40,7 +40,7 @@ const UserMockOAList: React.FC = () => {
         const fetchMockOAs = async () => {
             try {
                 const token = await user?.getIdToken();
-                const response = await fetch('http://localhost:5001/api/mockoa/list', {
+                const response = await fetch('https://codeprep-4-k73y.onrender.com/api/mockoa/list', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();
@@ -64,7 +64,7 @@ const UserMockOAList: React.FC = () => {
     const fetchHistory = async () => {
         try {
             const token = await user?.getIdToken();
-            const response = await fetch('http://localhost:5001/api/mockoa/user/history', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/mockoa/user/history', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();

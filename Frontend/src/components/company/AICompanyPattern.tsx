@@ -46,7 +46,7 @@ const AICompanyPattern: React.FC<Props> = ({ companyId, companyName }) => {
         try {
             const token = await user.getIdToken();
             const response = await fetch(
-                `http://localhost:5001/api/company-patterns/${companyId}/generate-pattern`,
+                `https://codeprep-4-k73y.onrender.com/api/company-patterns/${companyId}/generate-pattern`,
                 {
                     method: 'POST',
                     headers: {

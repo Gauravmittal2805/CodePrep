@@ -108,7 +108,7 @@ const ProblemEditor = () => {
         setIsLoadingComments(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/discussions/${problem.slug || problem.id || id}`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/discussions/${problem.slug || problem.id || id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -127,7 +127,7 @@ const ProblemEditor = () => {
         setIsPostingComment(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch('http://localhost:5001/api/discussions', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/discussions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ const ProblemEditor = () => {
         setIsLoadingSubmissions(true);
         try {
             const token = await user.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/code/submissions/${problem.slug || problem.id || id}`, {
+            const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/code/submissions/${problem.slug || problem.id || id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -193,7 +193,7 @@ const ProblemEditor = () => {
         try {
             const token = await user.getIdToken();
 
-            const response = await fetch('http://localhost:5001/api/code/test', {
+            const response = await fetch('https://codeprep-4-k73y.onrender.com/api/code/test', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -307,7 +307,7 @@ const ProblemEditor = () => {
 
                 let token = await user.getIdToken();
 
-                const response = await fetch(`http://localhost:5001/api/problems/${id}`, {
+                const response = await fetch(`https://codeprep-4-k73y.onrender.com/api/problems/${id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -333,7 +333,7 @@ const ProblemEditor = () => {
 
                 // Fetch real user submissions
                 token = await user.getIdToken();
-                const subResponse = await fetch(`http://localhost:5001/api/code/submissions/${data.data.slug || data.data.id || id}`, {
+                const subResponse = await fetch(`https://codeprep-4-k73y.onrender.com/api/code/submissions/${data.data.slug || data.data.id || id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (subResponse.ok) {

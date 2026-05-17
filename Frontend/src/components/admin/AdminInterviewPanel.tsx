@@ -41,7 +41,7 @@ export default function AdminInterviewPanel({ activeView }: AdminInterviewPanelP
         const fetchCompanies = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch("http://localhost:5001/api/companies", {
+                const res = await fetch("https://codeprep-4-k73y.onrender.com/api/companies", {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -88,7 +88,7 @@ export default function AdminInterviewPanel({ activeView }: AdminInterviewPanelP
                 }
             };
 
-            const res = await fetch("http://localhost:5001/api/interviews/create", {
+            const res = await fetch("https://codeprep-4-k73y.onrender.com/api/interviews/create", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

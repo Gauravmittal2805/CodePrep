@@ -82,7 +82,7 @@ const CreateContestForm = () => {
         queryFn: async () => {
             if (!user) return [];
             const token = await user.getIdToken();
-            const res = await fetch("http://localhost:5001/api/problems", {
+            const res = await fetch("https://codeprep-4-k73y.onrender.com/api/problems", {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await res.json();
@@ -96,7 +96,7 @@ const CreateContestForm = () => {
         queryFn: async () => {
             if (!user) return [];
             const token = await user.getIdToken();
-            const res = await fetch("http://localhost:5001/api/companies", {
+            const res = await fetch("https://codeprep-4-k73y.onrender.com/api/companies", {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await res.json();
@@ -264,7 +264,7 @@ const CreateContestForm = () => {
 
             setIsSaving(true);
             const token = await user.getIdToken();
-            const response = await fetch("http://localhost:5001/api/contests", {
+            const response = await fetch("https://codeprep-4-k73y.onrender.com/api/contests", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
